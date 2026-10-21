@@ -28,7 +28,7 @@ app.use('/uploads', (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 const plainPage = (title, text) =>
   `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 20px;line-height:1.5"><h1 style="font-size:22px">${title}</h1><p>${text}</p></body></html>`;
-// sem banco configurado (ex.: Vercel sem DATABASE_URL): explica o que fazer em vez de quebrar
+// sem armazenamento configurado (ex.: Vercel sem o Blob conectado): explica o que fazer em vez de quebrar
 app.use((req, res, next) => (db.configError ? res.status(503).type('html').send(plainPage('Configuração pendente', db.configError)) : next()));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -132,7 +132,7 @@ const ADMIN_COOKIE = 'adm';
 const ADMIN_TTL = 8 * 60 * 60 * 1000;
 const FALLBACK_SECRET = crypto.randomBytes(24).toString('hex'); // só vale no modo local sem SESSION_SECRET
 const signSession = (exp) => {
-  const key = (process.env.SESSION_SECRET || process.env.DATABASE_URL || process.env.POSTGRES_URL || FALLBACK_SECRET) + ':' + ((db.get().admin || {}).hash || '');
+  const key = (process.env.SESSION_SECRET || process.env.BLOB_READ_WRITE_TOKEN || FALLBACK_SECRET) + ':' + ((db.get().admin || {}).hash || '');
   return crypto.createHmac('sha256', key).update(String(exp)).digest('hex');
 };
 function loginAdmin(req, res) {
@@ -309,8 +309,8 @@ async function replaceLogo(s, file, remove) {
 
 // logos guardadas no banco (modo remoto); no modo local elas saem de /uploads
 app.get('/media/:file', wrap(async (req, res) => {
-  const id = path.basename(req.params.file, path.extname(req.params.file));
-  const asset = /^[0-9a-f]{24}$/.test(id) ? await db.readMedia(id) : null;
+  const file = req.params.file;
+  const asset = /^[0-9a-f]{24}\.(png|jpe?g|webp|svg)$/.test(file) ? await db.readMedia(file) : null;
   if (!asset) return res.status(404).end();
   res.set({
     'Content-Type': asset.mime,
@@ -901,7 +901,8 @@ app.use((err, req, res, next) => {
       res.send(html);
     });
   if (err && err.code === 'LIMIT_FILE_SIZE') return show(413, 'Arquivo grande', 'A imagem pode ter no máximo 2 MB.');
-  if (err && err.dbConnection) return show(503, 'Banco de dados indisponível', 'Não foi possível conectar ao banco de dados. Se você é o responsável, confira a variável DATABASE_URL e o banco no painel da Vercel.');
+  if (err && err.dbConnection) return show(503, 'Armazenamento indisponível', 'Não foi possível acessar os dados do salão. Se você é o responsável, confira se o Blob está conectado ao projeto na Vercel (variável BLOB_READ_WRITE_TOKEN).');
+  if (err && err.code === 'DB_CONFLICT') return show(409, 'Tente novamente', 'Outra alteração aconteceu ao mesmo tempo. Volte e repita a ação.');
   show(500, 'Erro', 'Algo deu errado. Tente novamente.');
 });
 
@@ -910,7 +911,7 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Salão rodando em http://localhost:${PORT}`);
     console.log(`Painel: http://localhost:${PORT}/admin`);
-    console.log(db.isRemote ? 'Dados: PostgreSQL (DATABASE_URL)' : 'Dados: arquivo data/db.json (local)');
+    console.log(db.isRemote ? 'Dados: arquivo JSON no Vercel Blob' : 'Dados: arquivo data/db.json (local)');
   });
 }
 

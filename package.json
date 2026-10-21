@@ -2,21 +2,21 @@
   "name": "agendamento-cabeleireiro",
   "version": "1.0.0",
   "private": true,
-  "description": "Sistema de agendamento para salão de beleza (Express + EJS + Tailwind), pronto para a Vercel",
+  "description": "Sistema de agendamento para salão de beleza (Express + EJS + Tailwind), dados em JSON, pronto para a Vercel",
   "main": "server.js",
   "scripts": {
     "build:css": "tailwindcss -i ./src/input.css -o ./public/css/app.css --minify",
     "watch:css": "tailwindcss -i ./src/input.css -o ./public/css/app.css --watch",
     "start": "npm run build:css && node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
-    "migrate:db": "node --env-file-if-exists=.env scripts/migrate-to-postgres.js"
+    "migrate:db": "node --env-file-if-exists=.env scripts/migrate-to-blob.js"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.2",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "multer": "^2.4.0",
-    "nodemailer": "^10.1.7",
-    "pg": "^8.23.1"
+    "nodemailer": "^10.1.7"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"
