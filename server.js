@@ -904,8 +904,9 @@ app.use((err, req, res, next) => {
   if (err && err.code === 'LIMIT_FILE_SIZE') return show(413, 'Arquivo grande', 'A imagem pode ter no máximo 2 MB.');
   if (err && err.dbConnection) {
     // o motivo real (sem segredos) ajuda o responsável a corrigir sem precisar abrir os logs
-    const detail = `${err.name || 'Erro'}: ${String(err.message || '').replace(/vercel_blob_rw_[\w-]+/g, '[token]')}`.slice(0, 220);
-    return show(503, 'Armazenamento indisponível', `Não foi possível acessar os dados do salão. Se você é o responsável, confira se o Blob está conectado ao projeto na Vercel (variável BLOB_READ_WRITE_TOKEN). Detalhe técnico: ${detail}`);
+    const detail = `${err.name || 'Erro'}: ${String(err.message || '').replace(/vercel_blob_rw_[\w-]+/g, '[token]')}`.slice(0, 220).replace(/[.\s]+$/, '');
+    const hint = err.hint ? ` Configuração: ${err.hint}.` : '';
+    return show(503, 'Armazenamento indisponível', `Não foi possível acessar os dados do salão. Se você é o responsável, confira se o Blob está conectado ao projeto na Vercel (variável BLOB_READ_WRITE_TOKEN). Detalhe técnico: ${detail}.${hint}`);
   }
   if (err && err.code === 'DB_CONFLICT') return show(409, 'Tente novamente', 'Outra alteração aconteceu ao mesmo tempo. Volte e repita a ação.');
   show(500, 'Erro', 'Algo deu errado. Tente novamente.');
