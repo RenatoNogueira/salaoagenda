@@ -26,8 +26,9 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 app.use(express.static(path.join(__dirname, 'public')));
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const plainPage = (title, text) =>
-  `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 20px;line-height:1.5"><h1 style="font-size:22px">${title}</h1><p>${text}</p></body></html>`;
+  `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head><body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 20px;line-height:1.5"><h1 style="font-size:22px">${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p></body></html>`;
 // sem armazenamento configurado (ex.: Vercel sem o Blob conectado): explica o que fazer em vez de quebrar
 app.use((req, res, next) => (db.configError ? res.status(503).type('html').send(plainPage('Configuração pendente', db.configError)) : next()));
 app.use(express.urlencoded({ extended: false }));
@@ -901,7 +902,11 @@ app.use((err, req, res, next) => {
       res.send(html);
     });
   if (err && err.code === 'LIMIT_FILE_SIZE') return show(413, 'Arquivo grande', 'A imagem pode ter no máximo 2 MB.');
-  if (err && err.dbConnection) return show(503, 'Armazenamento indisponível', 'Não foi possível acessar os dados do salão. Se você é o responsável, confira se o Blob está conectado ao projeto na Vercel (variável BLOB_READ_WRITE_TOKEN).');
+  if (err && err.dbConnection) {
+    // o motivo real (sem segredos) ajuda o responsável a corrigir sem precisar abrir os logs
+    const detail = `${err.name || 'Erro'}: ${String(err.message || '').replace(/vercel_blob_rw_[\w-]+/g, '[token]')}`.slice(0, 220);
+    return show(503, 'Armazenamento indisponível', `Não foi possível acessar os dados do salão. Se você é o responsável, confira se o Blob está conectado ao projeto na Vercel (variável BLOB_READ_WRITE_TOKEN). Detalhe técnico: ${detail}`);
+  }
   if (err && err.code === 'DB_CONFLICT') return show(409, 'Tente novamente', 'Outra alteração aconteceu ao mesmo tempo. Volte e repita a ação.');
   show(500, 'Erro', 'Algo deu errado. Tente novamente.');
 });
