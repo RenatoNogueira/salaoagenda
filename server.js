@@ -26,6 +26,10 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 app.use(express.static(path.join(__dirname, 'public')));
+const plainPage = (title, text) =>
+  `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 20px;line-height:1.5"><h1 style="font-size:22px">${title}</h1><p>${text}</p></body></html>`;
+// sem banco configurado (ex.: Vercel sem DATABASE_URL): explica o que fazer em vez de quebrar
+app.use((req, res, next) => (db.configError ? res.status(503).type('html').send(plainPage('Configuração pendente', db.configError)) : next()));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(db.middleware); // depois dos parsers de corpo: carrega/grava os dados de cada pedido
@@ -890,10 +894,15 @@ app.use((err, req, res, next) => {
   console.error(err);
   db.rollback(); // pedido com erro não grava nada pela metade
   if (res.headersSent) return next(err);
-  if (err && err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).render('erro', { title: 'Arquivo grande', msg: 'A imagem pode ter no máximo 2 MB.' });
-  }
-  res.status(500).render('erro', { title: 'Erro', msg: 'Algo deu errado. Tente novamente.' });
+  // Página de erro do sistema; se nem ela puder ser montada (ex.: banco fora do ar), responde texto simples
+  const show = (status, title, msg) =>
+    res.status(status).render('erro', { title, msg }, (renderErr, html) => {
+      if (renderErr) return res.type('html').send(plainPage(title, msg));
+      res.send(html);
+    });
+  if (err && err.code === 'LIMIT_FILE_SIZE') return show(413, 'Arquivo grande', 'A imagem pode ter no máximo 2 MB.');
+  if (err && err.dbConnection) return show(503, 'Banco de dados indisponível', 'Não foi possível conectar ao banco de dados. Se você é o responsável, confira a variável DATABASE_URL e o banco no painel da Vercel.');
+  show(500, 'Erro', 'Algo deu errado. Tente novamente.');
 });
 
 // Na Vercel o app é importado por api/index.js (sem listen); localmente, `node server.js` sobe o servidor.
