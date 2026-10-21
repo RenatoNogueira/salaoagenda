@@ -1,0 +1,86 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<%
+  const meta = {
+    ativa: ['Ativa', 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'],
+    risco: ['Em risco', 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'],
+    inativa: ['Inativa', 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'],
+    nova: ['Sem visita', 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'],
+  };
+  const since = (c) => c.daysAway === null ? 'nenhuma visita concluída' : c.daysAway === 0 ? 'hoje' : c.daysAway === 1 ? 'ontem' : 'há ' + c.daysAway + ' dias';
+  const wa = (c) => { const dg = c.key; return dg.startsWith('55') ? dg : '55' + dg; };
+  const reactivate = (c) => `Olá, ${c.name.split(' ')[0]}! Sentimos sua falta no ${settings.name} 💖 Que tal agendar um horário? ${origin}/agendar`;
+  const query = (o) => {
+    const p = new URLSearchParams();
+    Object.entries(Object.assign({ status: status === 'todas' ? '' : status, ordem: sort === 'nome' ? '' : sort, q }, o)).forEach(([k, v]) => { if (v) p.set(k, v); });
+    return p.toString() ? '?' + p.toString() : '';
+  };
+  const money = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+%>
+
+<main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-extrabold">Clientes</h1>
+      <p class="text-sm text-slate-500">Ativa = voltou nos últimos <strong><%= activeDays %> dias</strong> · em risco até <%= activeDays * 2 %> dias · depois disso, inativa.</p>
+    </div>
+  </div>
+
+  <!-- Resumo / filtro por situação -->
+  <div class="-mx-4 mt-5 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-5 sm:overflow-visible sm:px-0">
+    <% [['todas','Todas','text-slate-800'],['ativa','Ativas','text-green-600 dark:text-green-400'],['risco','Em risco','text-amber-600 dark:text-amber-400'],['inativa','Inativas','text-red-600 dark:text-red-400'],['nova','Sem visita','text-slate-500']].forEach(([k, l, color]) => { %>
+      <a href="/admin/clientes<%= query({ status: k === 'todas' ? '' : k }) %>" class="card min-w-[96px] shrink-0 !p-3 text-center transition sm:min-w-0 sm:!p-4 <%= status === k ? '!ring-2 !ring-brand' : 'hover:ring-brand/50' %>">
+        <p class="text-2xl font-extrabold <%= color %>"><%= counts[k] %></p>
+        <p class="text-xs text-slate-500"><%= l %></p>
+      </a>
+    <% }) %>
+  </div>
+
+  <!-- Busca e ordem -->
+  <form method="get" class="mt-4 flex flex-wrap gap-2">
+    <% if (status !== 'todas') { %><input type="hidden" name="status" value="<%= status %>"><% } %>
+    <input name="q" type="search" value="<%= q %>" placeholder="Buscar nome ou telefone" class="field w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1">
+    <select name="ordem" class="field !w-auto min-w-0 flex-1 sm:flex-none" onchange="this.form.submit()" aria-label="Ordenar">
+      <% [['nome','Nome (A–Z)'],['recente','Visita mais recente'],['antiga','Há mais tempo sem vir'],['gasto','Maior gasto'],['visitas','Mais visitas']].forEach(([k, l]) => { %>
+        <option value="<%= k %>" <%= sort === k ? 'selected' : '' %>><%= l %></option>
+      <% }) %>
+    </select>
+    <button class="btn-outline">Buscar</button>
+  </form>
+
+  <!-- Lista -->
+  <div class="mt-5 space-y-3">
+    <% if (!clients.length) { %><div class="card text-center text-slate-500">Nenhuma cliente encontrada.</div><% } %>
+    <% clients.forEach(c => { %>
+      <article class="card !p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="flex flex-wrap items-center gap-2 font-semibold">
+              <span class="truncate"><%= c.name %></span>
+              <span class="rounded-full px-2 py-0.5 text-xs font-medium <%= meta[c.status][1] %>"><%= meta[c.status][0] %></span>
+              <% if (c.registered) { %><span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">Cadastrada</span><% } %>
+              <% if (c.next) { %><span class="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand">Agendada <%= dateBR(c.next).slice(0, 5) %></span><% } %>
+            </p>
+            <a class="inline-block py-1 text-sm text-brand" href="tel:<%= c.key %>"><%= c.phone %></a>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <% if (c.status === 'risco' || c.status === 'inativa') { %>
+              <a class="btn-primary btn-sm" target="_blank" rel="noopener" href="https://wa.me/<%= wa(c) %>?text=<%= encodeURIComponent(reactivate(c)) %>">Reativar</a>
+            <% } else { %>
+              <a class="btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/<%= wa(c) %>">WhatsApp</a>
+            <% } %>
+          </div>
+        </div>
+        <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500 sm:grid-cols-4">
+          <div>Última visita: <strong class="text-slate-700"><%= c.last ? dateBR(c.last) + ' (' + since(c) + ')' : since(c) %></strong></div>
+          <div>Visitas: <strong class="text-slate-700"><%= c.visits %></strong></div>
+          <div>Total gasto: <strong class="text-slate-700"><%= money(c.spent) %></strong></div>
+          <div>Ticket médio: <strong class="text-slate-700"><%= c.visits ? money(c.ticket) : '—' %></strong></div>
+        </dl>
+      </article>
+    <% }) %>
+  </div>
+</main>
+</body>
+</html>

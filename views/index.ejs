@@ -1,0 +1,168 @@
+<%- include('partials/head') %>
+
+<main>
+  <!-- Hero -->
+  <section class="relative overflow-hidden pt-[env(safe-area-inset-top)]">
+    <div class="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-brand/30 blur-3xl"></div>
+    <div class="pointer-events-none absolute -right-24 top-16 h-72 w-72 rounded-full bg-accent/25 blur-3xl"></div>
+    <div class="relative mx-auto flex max-w-5xl flex-col items-center px-4 pb-12 pt-10 text-center sm:pb-20 sm:pt-20">
+      <div class="rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30">
+        <img src="<%= settings.logo %>" alt="" class="h-24 w-24 rounded-full bg-surface object-cover ring-4 ring-surface sm:h-28 sm:w-28">
+      </div>
+      <% if (customer) { %><p class="mt-5 rounded-full bg-brand-soft px-4 py-1.5 text-sm font-semibold text-brand">Olá, <%= customer.name.split(' ')[0] %>! 👋</p><% } %>
+      <h1 class="text-gradient mt-5 text-4xl font-extrabold tracking-tight sm:text-6xl"><%= settings.name %></h1>
+      <p class="mt-3 max-w-xl text-base text-slate-600 sm:text-lg"><%= settings.tagline %></p>
+
+      <div class="mt-7 flex flex-wrap justify-center gap-2 text-sm">
+        <span class="glass rounded-full px-4 py-2 ring-1 ring-slate-200/80">🕒 <%= settings.openTime %>–<%= settings.closeTime %></span>
+        <% if (settings.address) { %><span class="glass rounded-full px-4 py-2 ring-1 ring-slate-200/80">📍 <%= settings.address %></span><% } %>
+      </div>
+
+      <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+        <a href="/agendar" class="btn-primary hidden px-8 py-3.5 text-base sm:inline-flex">Agendar meu horário</a>
+        <% if (!customer) { %><button type="button" data-open-cadastro class="btn-outline px-8 py-3.5 text-base">Cadastrar / Entrar</button><% } %>
+      </div>
+    </div>
+  </section>
+
+  <!-- Como funciona -->
+  <section class="mx-auto max-w-5xl px-4">
+    <div class="grid gap-3 sm:grid-cols-3">
+      <% [['1','Escolha o serviço','Veja preços e duração de cada um.'],['2','Marque o horário','Só aparecem horários livres de verdade.'],['3','Pronto!','Você recebe a confirmação na hora.']].forEach(([n, t, d]) => { %>
+        <div class="card flex items-center gap-4 !p-4 sm:block sm:!p-6">
+          <span class="step-num !mr-0 h-10 w-10 shrink-0 text-base sm:mb-3"><%= n %></span>
+          <div><p class="font-bold"><%= t %></p><p class="text-sm text-slate-500"><%= d %></p></div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <!-- Serviços -->
+  <section id="servicos" class="mx-auto max-w-5xl scroll-mt-20 px-4 pt-14">
+    <h2 class="text-2xl font-extrabold sm:text-3xl">Nossos serviços</h2>
+    <p class="mt-1 text-slate-500">Toque em um serviço para já agendar.</p>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <% services.forEach(s => { %>
+        <a href="/agendar?servico=<%= s.id %>" class="card group flex items-center gap-4 !p-4 transition hover:-translate-y-0.5 hover:ring-brand/60">
+          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-lg font-bold text-white shadow-md shadow-brand/30"><%= s.name.charAt(0).toUpperCase() %></span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-semibold"><%= s.name %></p>
+            <p class="text-sm text-slate-500"><%= s.duration %> min</p>
+          </div>
+          <span class="font-extrabold text-brand"><%= brl(s.price) %></span>
+        </a>
+      <% }) %>
+    </div>
+  </section>
+
+  <!-- Cadastro -->
+  <section id="cadastro" class="mx-auto max-w-5xl scroll-mt-6 px-4 pt-14">
+    <div class="card relative overflow-hidden sm:!p-8">
+      <div class="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/20 blur-3xl"></div>
+      <% if (customer) { %>
+        <div class="relative flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-2xl font-extrabold">Você está cadastrada ✓</h2>
+            <p class="mt-1 text-slate-500">Olá, <%= customer.name.split(' ')[0] %>! Seu nome e telefone já vão preenchidos quando você agendar.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <a href="/agendar" class="btn-primary">Agendar horário</a>
+            <button type="button" id="logout" class="py-2 text-sm text-slate-500 underline">Não sou eu / sair</button>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="relative flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="max-w-xl">
+            <h2 class="text-2xl font-extrabold sm:text-3xl">Faça seu cadastro</h2>
+            <p class="mt-2 text-slate-500">Só <strong>nome</strong> e <strong>telefone</strong>, sem senha. Nas próximas vezes seu agendamento já vem preenchido.</p>
+          </div>
+          <button type="button" data-open-cadastro class="btn-primary w-full px-8 py-3.5 text-base sm:w-auto">Cadastrar / Entrar</button>
+        </div>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<div class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-surface/80 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+  <a href="/agendar" class="btn-primary w-full py-3.5 text-base">Agendar horário</a>
+</div>
+
+<% if (!customer) { %>
+<dialog id="cadastro-modal" class="modal" aria-labelledby="cm-title">
+  <div class="relative overflow-hidden p-6 sm:p-8">
+    <div class="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-accent/25 blur-3xl"></div>
+    <button type="button" id="cm-close" aria-label="Fechar" class="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100">
+      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+
+    <!-- Formulário -->
+    <div id="cm-form-view" class="relative">
+      <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-gradient text-xl text-white shadow-lg shadow-brand/30">👤</span>
+      <h2 id="cm-title" class="text-2xl font-extrabold">Cadastre-se ou entre</h2>
+      <p class="mt-1 text-sm text-slate-500">Basta nome e telefone, sem senha. Já tem cadastro? Digite os mesmos dados para entrar.</p>
+      <form id="cadastro-form" class="mt-5 space-y-3" novalidate>
+        <div>
+          <label class="label" for="c-name">Nome</label>
+          <input id="c-name" class="field" required minlength="2" maxlength="80" autocomplete="name" autocapitalize="words" placeholder="Seu nome">
+        </div>
+        <div>
+          <label class="label" for="c-phone">Telefone (WhatsApp)</label>
+          <input id="c-phone" class="field" required type="tel" data-mask="phone" autocomplete="tel">
+        </div>
+        <p id="c-error" class="hidden rounded-xl bg-red-100 px-3 py-2 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300" role="alert"></p>
+        <button class="btn-primary w-full py-3.5 text-base" id="c-submit">Cadastrar / Entrar</button>
+        <p class="text-center text-xs text-slate-400">Usamos seus dados apenas para falar sobre seus agendamentos.</p>
+      </form>
+    </div>
+
+    <!-- Sucesso -->
+    <div id="cm-done-view" class="relative hidden py-4 text-center">
+      <span class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-gradient text-3xl text-white shadow-lg shadow-brand/30">✓</span>
+      <h2 id="cm-done-title" class="text-2xl font-extrabold">Tudo certo!</h2>
+      <p class="mt-1 text-sm text-slate-500">Seu nome e telefone já vão preenchidos quando você agendar.</p>
+      <a href="/agendar" class="btn-primary mt-6 w-full py-3.5 text-base">Agendar horário</a>
+      <button type="button" id="cm-later" class="mt-2 w-full py-2 text-sm text-slate-500">Agora não</button>
+    </div>
+  </div>
+</dialog>
+<% } %>
+
+<script src="/js/mask.js"></script>
+<script>
+(function () {
+  var modal = document.getElementById('cadastro-modal');
+  var registered = false;
+  if (modal) {
+    document.querySelectorAll('[data-open-cadastro]').forEach(function (b) {
+      b.addEventListener('click', function () { modal.showModal(); document.getElementById('c-name').focus(); });
+    });
+    document.getElementById('cm-close').addEventListener('click', function () { modal.close(); });
+    document.getElementById('cm-later').addEventListener('click', function () { modal.close(); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.close(); });
+    modal.addEventListener('close', function () { if (registered) location.reload(); });
+
+    var form = document.getElementById('cadastro-form');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = document.getElementById('c-submit'), err = document.getElementById('c-error');
+      var fail = function (msg) { err.textContent = msg; err.classList.remove('hidden'); btn.disabled = false; };
+      btn.disabled = true; err.classList.add('hidden');
+      fetch('/api/cadastro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: document.getElementById('c-name').value, phone: document.getElementById('c-phone').value }),
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+        if (!x.ok) return fail(x.d.error);
+        registered = true;
+        document.getElementById('cm-done-title').textContent = (x.d.returning ? 'Bem-vinda de volta, ' : 'Tudo certo, ') + x.d.name + '!';
+        document.getElementById('cm-form-view').classList.add('hidden');
+        document.getElementById('cm-done-view').classList.remove('hidden');
+      }).catch(function () { fail('Não foi possível cadastrar. Tente de novo.'); });
+    });
+  }
+  var out = document.getElementById('logout');
+  if (out) out.addEventListener('click', function () {
+    fetch('/api/cadastro/sair', { method: 'POST' }).then(function () { location.reload(); });
+  });
+})();
+</script>
+<%- include('partials/site-footer') %>

@@ -1,0 +1,170 @@
+<%- include('partials/head') %>
+<%- include('partials/site-header') %>
+
+<main class="mx-auto max-w-3xl px-4 pt-6 sm:pt-10">
+  <h1 class="text-gradient text-3xl font-extrabold sm:text-4xl">Agendar horário</h1>
+  <p class="mt-1 text-sm text-slate-500 sm:text-base">Escolha o serviço, o profissional e o melhor horário.</p>
+
+  <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+    <div id="progress" class="h-full w-1/4 rounded-full bg-brand-gradient transition-all duration-300"></div>
+  </div>
+
+  <div id="app" class="mt-6 space-y-7">
+    <section id="step-service" class="scroll-mt-20">
+      <h2 class="mb-3 flex items-center font-bold"><span class="step-num">1</span>Serviço</h2>
+      <div id="services" class="grid gap-3 sm:grid-cols-2"></div>
+    </section>
+
+    <section id="step-pro" class="hidden scroll-mt-20">
+      <h2 class="mb-3 flex items-center font-bold"><span class="step-num">2</span>Profissional</h2>
+      <div id="pros" class="grid grid-cols-2 gap-3"></div>
+    </section>
+
+    <section id="step-date" class="hidden scroll-mt-20">
+      <h2 class="mb-3 flex items-center font-bold"><span class="step-num">3</span>Data e horário</h2>
+      <div id="days" class="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-2"></div>
+      <label class="mt-2 flex items-center gap-2 text-sm text-slate-500">
+        Outra data:
+        <input type="date" id="date" min="<%= today %>" max="<%= maxDate %>" class="field !w-auto">
+      </label>
+      <p id="slots-msg" class="mt-4 text-sm text-slate-500"></p>
+      <div id="slots" class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5"></div>
+    </section>
+
+    <form id="step-form" class="card hidden scroll-mt-20 space-y-4 !pb-0">
+      <h2 class="flex items-center font-bold"><span class="step-num">4</span>Seus dados</h2>
+      <p id="summary" class="rounded-xl bg-brand-soft p-3 text-sm font-medium"></p>
+      <div>
+        <label class="label" for="name">Nome</label>
+        <input id="name" class="field" required minlength="2" maxlength="80" autocomplete="name" autocapitalize="words" value="<%= customer ? customer.name : '' %>">
+      </div>
+      <div>
+        <label class="label" for="phone">Telefone / WhatsApp</label>
+        <input id="phone" class="field" required type="tel" data-mask="phone" autocomplete="tel" value="<%= customer ? customer.phone : '' %>">
+      </div>
+      <div>
+        <label class="label" for="notes">Observações (opcional)</label>
+        <textarea id="notes" rows="2" maxlength="200" class="field"></textarea>
+      </div>
+      <p id="error" class="hidden text-sm font-medium text-red-600 dark:text-red-400"></p>
+      <div class="sticky bottom-0 -mx-4 rounded-b-2xl border-t border-slate-200 bg-surface p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:-mx-6 sm:p-4">
+        <button class="btn-primary w-full py-3.5 text-base" id="submit">Confirmar agendamento</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<%- include('partials/site-footer') %>
+
+<script src="/js/mask.js"></script>
+<script>
+(() => {
+  const SERVICES = <%- JSON.stringify(services).replace(/</g, '\\u003c') %>;
+  const PROS = <%- JSON.stringify(professionals).replace(/</g, '\\u003c') %>;
+  const PRESET = <%- JSON.stringify(preset).replace(/</g, '\\u003c') %>;
+  const OPEN_DAYS = <%- JSON.stringify(openDays) %>;
+  const BLOCKED = <%- JSON.stringify(blockedDates) %>;
+  const MAX_DAYS = <%= maxDays %>;
+  const TODAY = '<%= today %>';
+
+  const state = { service: null, pro: 0, date: '', time: '' };
+  const $ = (id) => document.getElementById(id);
+  const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const mark = (container, el) => {
+    container.querySelectorAll('.choice').forEach((b) => b.classList.remove('choice-active'));
+    el.classList.add('choice-active');
+  };
+  const show = (id) => $(id).classList.remove('hidden');
+  const hide = (...ids) => ids.forEach((id) => $(id).classList.add('hidden'));
+  const go = (id) => setTimeout(() => $(id).scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  const progress = (n) => { $('progress').style.width = n * 25 + '%'; };
+
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const WEEK = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const MONTH = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  $('services').innerHTML = SERVICES.map((s) => `
+    <button type="button" class="choice" data-id="${s.id}">
+      <span class="block font-semibold">${esc(s.name)}</span>
+      <span class="text-sm text-slate-500">${s.duration} min · ${brl(s.price)}</span>
+    </button>`).join('') || '<p class="text-sm text-slate-500">Nenhum serviço cadastrado.</p>';
+
+  // Próximos dias como "chips" rolando na horizontal (mais fácil no polegar que o calendário)
+  const start = new Date(TODAY + 'T00:00:00');
+  const chips = [];
+  for (let i = 0; i <= Math.min(MAX_DAYS, 20); i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = iso(d);
+    const open = OPEN_DAYS.includes(d.getDay()) && !BLOCKED.includes(k);
+    chips.push(`<button type="button" data-date="${k}" ${open ? '' : 'disabled'}
+      class="choice w-16 shrink-0 snap-start !p-2 text-center ${open ? '' : 'pointer-events-none opacity-40'}">
+      <span class="block text-xs uppercase text-slate-500">${i === 0 ? 'hoje' : WEEK[d.getDay()]}</span>
+      <span class="block text-xl font-bold">${d.getDate()}</span>
+      <span class="block text-xs text-slate-500">${MONTH[d.getMonth()]}</span></button>`);
+  }
+  $('days').innerHTML = chips.join('');
+
+  function pickService(id) {
+    state.service = SERVICES.find((s) => s.id === id); state.pro = 0; state.time = '';
+    mark($('services'), $('services').querySelector(`[data-id="${id}"]`));
+    $('pros').innerHTML =
+      `<button type="button" class="choice choice-active col-span-2" data-id="0"><span class="block font-semibold">Sem preferência</span><span class="text-sm text-slate-500">Primeiro horário disponível</span></button>` +
+      PROS.map((p) => `<button type="button" class="choice" data-id="${p.id}"><span class="block font-semibold">${esc(p.name)}</span></button>`).join('');
+    show('step-pro'); show('step-date'); hide('step-form');
+    progress(2); go('step-pro');
+    if (state.date) loadSlots();
+  }
+
+  async function loadSlots() {
+    $('slots').innerHTML = ''; state.time = ''; hide('step-form');
+    if (!state.date) { $('slots-msg').textContent = 'Escolha uma data.'; return; }
+    $('slots-msg').textContent = 'Buscando horários...';
+    const q = new URLSearchParams({ data: state.date, servico: state.service.id, profissional: state.pro });
+    const { slots, reason } = await (await fetch('/api/horarios?' + q)).json();
+    $('slots-msg').textContent = slots.length ? 'Toque no horário desejado:' : (reason ? reason + '. ' : '') + 'Tente outro dia.';
+    $('slots').innerHTML = slots.map((s) => `<button type="button" class="choice !p-0 h-12 text-center font-semibold" data-time="${s.time}">${s.time}</button>`).join('');
+    if (slots.length) { progress(3); }
+  }
+
+  function setDate(k) {
+    state.date = k; $('date').value = k;
+    $('days').querySelectorAll('.choice').forEach((b) => b.classList.toggle('choice-active', b.dataset.date === k));
+    loadSlots();
+  }
+
+  $('services').addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) pickService(Number(b.dataset.id)); });
+  $('pros').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-id]'); if (!b) return;
+    state.pro = Number(b.dataset.id); mark($('pros'), b);
+    if (state.date) loadSlots(); else go('step-date');
+  });
+  $('days').addEventListener('click', (e) => { const b = e.target.closest('[data-date]'); if (b && !b.disabled) setDate(b.dataset.date); });
+  $('date').addEventListener('change', (e) => { if (e.target.value) setDate(e.target.value); });
+  $('slots').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-time]'); if (!b) return;
+    state.time = b.dataset.time; mark($('slots'), b);
+    $('summary').textContent = `${state.service.name} · ${state.date.split('-').reverse().join('/')} às ${state.time} · ${brl(state.service.price)}`;
+    show('step-form'); progress(4); go('step-form');
+  });
+
+  $('step-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('submit'); btn.disabled = true; $('error').classList.add('hidden');
+    const res = await fetch('/api/agendar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serviceId: state.service.id, professionalId: state.pro, date: state.date, time: state.time,
+        name: $('name').value, phone: $('phone').value, notes: $('notes').value,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) { location.href = data.url; return; }
+    $('error').textContent = data.error; $('error').classList.remove('hidden'); btn.disabled = false;
+    if (res.status === 409) { loadSlots(); go('step-date'); }
+  });
+
+  // Pré-seleção vinda da home
+  if (PRESET.service && SERVICES.some((x) => x.id === PRESET.service)) pickService(PRESET.service);
+})();
+</script>

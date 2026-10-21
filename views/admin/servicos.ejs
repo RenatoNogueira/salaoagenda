@@ -1,0 +1,32 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
+  <h1 class="text-2xl font-extrabold">Serviços</h1>
+
+  <form method="post" action="/admin/servicos" class="card mt-6 grid gap-3 sm:grid-cols-4 sm:items-end">
+    <div class="sm:col-span-2"><label class="label">Novo serviço</label><input name="name" class="field" required placeholder="Ex.: Escova progressiva"></div>
+    <div><label class="label">Duração (min)</label><input name="duration" type="number" min="5" step="5" value="30" class="field"></div>
+    <div class="flex flex-wrap gap-2"><div class="flex-1"><label class="label">Preço (R$)</label><input name="price" inputmode="decimal" value="0" class="field"></div>
+      <button class="btn-primary">Adicionar</button></div>
+  </form>
+
+  <div class="mt-6 space-y-3">
+    <% services.forEach(s => { %>
+      <div class="card !p-4">
+        <form method="post" action="/admin/servicos" class="grid gap-3 sm:grid-cols-4 sm:items-end">
+          <input type="hidden" name="id" value="<%= s.id %>">
+          <div class="sm:col-span-2"><input name="name" value="<%= s.name %>" class="field" required></div>
+          <input name="duration" type="number" min="5" step="5" value="<%= s.duration %>" class="field">
+          <div class="flex flex-wrap gap-2">
+            <input name="price" inputmode="decimal" value="<%= s.price %>" class="field">
+            <button class="btn-outline btn-sm">Salvar</button>
+            <button class="btn-ghost btn-sm text-red-600 dark:text-red-400" formaction="/admin/servicos/<%= s.id %>/excluir" data-title="Excluir serviço?" data-confirm="O serviço “<%= s.name %>” deixará de aparecer para as clientes. Os agendamentos já feitos continuam no histórico." data-ok="Sim, excluir" data-tone="danger">Excluir</button>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+</main>
+</body>
+</html>

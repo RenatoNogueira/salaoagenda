@@ -1,0 +1,191 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
+  <!-- Abas -->
+  <div class="mx-auto grid max-w-md grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1 text-sm font-semibold">
+    <a href="/admin" class="rounded-xl px-4 py-2.5 text-center transition <%= view === 'dia' ? 'bg-surface text-brand shadow-sm' : 'text-slate-500' %>">Agenda do dia</a>
+    <a href="/admin?view=confirmar" class="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-center transition <%= view === 'confirmar' ? 'bg-surface text-brand shadow-sm' : 'text-slate-500' %>">
+      A confirmar
+      <span id="pending-badge" class="min-w-[1.5rem] rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white <%= pending ? '' : 'hidden' %>"><%= pending %></span>
+    </a>
+  </div>
+
+<% if (view === 'dia') { %>
+  <!-- Navegação de datas -->
+  <div class="mt-5 flex items-center justify-between gap-2">
+    <a href="/admin?data=<%= prev %>" aria-label="Dia anterior" class="btn-ghost !px-3 text-xl">‹</a>
+    <form method="get" class="text-center">
+      <label class="relative block cursor-pointer">
+        <span class="block text-xl font-extrabold"><%= weekday %>, <%= dateBR(date).slice(0, 5) %></span>
+        <span class="block text-xs text-slate-500"><%= date === today ? 'Hoje · ' : '' %>toque para escolher outra data</span>
+        <input type="date" name="data" value="<%= date %>" class="absolute inset-0 h-full w-full cursor-pointer opacity-0" onchange="this.form.submit()" aria-label="Escolher data">
+      </label>
+    </form>
+    <a href="/admin?data=<%= next %>" aria-label="Próximo dia" class="btn-ghost !px-3 text-xl">›</a>
+  </div>
+
+  <!-- Faixa da semana -->
+  <div class="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:justify-center">
+    <% strip.forEach(s => { %>
+      <a href="/admin?data=<%= s.date %>" class="relative w-14 shrink-0 rounded-2xl border-2 py-2 text-center transition <%= s.date === date ? 'border-brand bg-brand-soft' : 'border-transparent bg-surface ring-1 ring-slate-200/80' %>">
+        <span class="block text-[11px] uppercase text-slate-500"><%= s.date === today ? 'hoje' : s.weekday %></span>
+        <span class="block text-lg font-bold"><%= s.dd %></span>
+        <span class="block text-[11px] <%= s.count ? 'font-semibold text-brand' : 'text-slate-400' %>"><%= s.count ? s.count + ' ag.' : '—' %></span>
+        <% if (s.pending) { %><span class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-surface"></span><% } %>
+      </a>
+    <% }) %>
+  </div>
+  <% if (date !== today) { %><div class="mt-3 text-center"><a href="/admin" class="btn-outline btn-sm">Ir para hoje</a></div><% } %>
+
+  <% const active = list.filter(a => a.status !== 'cancelado');
+     const dayTotal = active.reduce((t, a) => t + (a.price != null ? a.price : (a.service ? a.service.price : 0)), 0);
+     const dayPending = list.filter(a => a.status === 'pendente').length;
+     const dayReceived = list.reduce((t, a) => t + a.pay.paid, 0); %>
+  <div class="mt-5 grid grid-cols-3 gap-3">
+    <div class="card !p-3 text-center sm:!p-4"><p class="text-gradient text-2xl font-extrabold"><%= active.length %></p><p class="text-xs text-slate-500">atendimentos</p></div>
+    <div class="card !p-3 text-center sm:!p-4"><p class="text-2xl font-extrabold"><%= dayPending %></p><p class="text-xs text-slate-500">pendentes</p></div>
+    <div class="card !p-3 text-center sm:!p-4"><p class="text-lg font-extrabold sm:text-2xl"><%= brl(dayReceived) %></p><p class="text-xs text-slate-500">recebido de <%= brl(dayTotal) %></p></div>
+  </div>
+
+  <!-- Filtros por status -->
+  <div id="filters" class="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1">
+    <% [['todos','Todos'],['pendente','Pendentes'],['confirmado','Confirmados'],['concluido','Concluídos'],['cancelado','Cancelados']].forEach(([k, l], i) => { %>
+      <button type="button" data-filter="<%= k %>" class="min-h-[40px] shrink-0 rounded-full border-2 px-4 text-sm font-semibold transition <%= i === 0 ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-surface text-slate-600' %>">
+        <%= l %> <span class="ml-1 text-xs opacity-70" data-count="<%= k %>"><%= k === 'todos' ? list.length : list.filter(a => a.status === k).length %></span>
+      </button>
+    <% }) %>
+  </div>
+
+  <div id="list" class="mt-4 space-y-3">
+    <% list.forEach(a => { %><%- include('_card', { a, today, showDate: false }) %><% }) %>
+    <div id="empty" class="card text-center text-slate-500 <%= list.length ? 'hidden' : '' %>">Nenhum agendamento <%= list.length ? 'neste filtro' : 'em ' + dateBR(date) %>.</div>
+  </div>
+
+<% } else { %>
+  <!-- Fila de confirmação -->
+  <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-extrabold">Aguardando confirmação</h1>
+      <p class="text-sm text-slate-500">Todos os pendentes de hoje em diante, por data.</p>
+    </div>
+    <% if (pending > 1) { %>
+      <form method="post" action="/admin/agendamentos/confirmar-todos" data-title="Confirmar todos?" data-confirm="Os <%= pending %> agendamentos pendentes serão marcados como confirmados." data-ok="Sim, confirmar todos" data-tone="primary">
+        <input type="hidden" name="data" value="todos">
+        <button class="btn-primary">✓ Confirmar todos (<%= pending %>)</button>
+      </form>
+    <% } %>
+  </div>
+
+  <div id="list" class="mt-5 space-y-6">
+    <% groups.forEach(g => { %>
+      <section data-group>
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <h2 class="font-bold"><%= g.weekday %>, <%= dateBR(g.date).slice(0, 5) %> <span class="text-sm font-normal text-slate-500"><%= g.date === today ? '· hoje' : '' %></span></h2>
+          <a href="/admin?data=<%= g.date %>" class="text-xs font-semibold text-brand">Ver o dia →</a>
+        </div>
+        <div class="space-y-3" data-group-items>
+          <% g.items.forEach(a => { %><%- include('_card', { a, today, showDate: false }) %><% }) %>
+        </div>
+      </section>
+    <% }) %>
+    <div id="empty" class="card py-10 text-center <%= groups.length ? 'hidden' : '' %>">
+      <p class="text-4xl">🎉</p>
+      <p class="mt-2 font-bold">Tudo confirmado!</p>
+      <p class="text-sm text-slate-500">Não há agendamentos aguardando confirmação.</p>
+    </div>
+  </div>
+<% } %>
+</main>
+
+<div id="toast" class="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 opacity-0 transition-opacity md:bottom-6" role="status" aria-live="polite">
+  <span class="rounded-full bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-lg"></span>
+</div>
+
+<script>
+(function () {
+  var VIEW = '<%= view %>';
+  var list = document.getElementById('list');
+  var filter = 'todos';
+  var toastEl = document.getElementById('toast'), toastTimer;
+  var LABEL = { pendente: 'voltou para pendente', confirmado: 'confirmado ✓', concluido: 'concluído', cancelado: 'cancelado' };
+
+  function toast(msg) {
+    toastEl.firstElementChild.textContent = msg;
+    toastEl.classList.remove('opacity-0');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.add('opacity-0'); }, 2200);
+  }
+
+  function counts() {
+    var c = { todos: 0, pendente: 0, confirmado: 0, concluido: 0, cancelado: 0 };
+    list.querySelectorAll('[data-card]').forEach(function (el) { c.todos++; c[el.dataset.status]++; });
+    return c;
+  }
+
+  function refresh() {
+    var c = counts();
+    document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = c[el.dataset.count]; });
+    list.querySelectorAll('[data-card]').forEach(function (el) {
+      el.classList.toggle('hidden', filter !== 'todos' && el.dataset.status !== filter);
+    });
+    list.querySelectorAll('[data-group]').forEach(function (g) {
+      g.classList.toggle('hidden', !g.querySelector('[data-card]'));
+    });
+    var visible = list.querySelectorAll('[data-card]:not(.hidden)').length;
+    var empty = document.getElementById('empty');
+    if (empty) empty.classList.toggle('hidden', visible > 0);
+  }
+
+  function setBadge(delta) {
+    var b = document.getElementById('pending-badge'); if (!b) return;
+    var n = Math.max(0, (parseInt(b.textContent, 10) || 0) + delta);
+    b.textContent = n; b.classList.toggle('hidden', n === 0);
+  }
+
+  // Filtros por status
+  var filters = document.getElementById('filters');
+  if (filters) filters.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-filter]'); if (!b) return;
+    filter = b.dataset.filter;
+    filters.querySelectorAll('[data-filter]').forEach(function (x) {
+      var on = x === b;
+      x.classList.toggle('border-brand', on); x.classList.toggle('bg-brand-soft', on); x.classList.toggle('text-brand', on);
+      x.classList.toggle('border-slate-200', !on); x.classList.toggle('bg-surface', !on); x.classList.toggle('text-slate-600', !on);
+    });
+    refresh();
+  });
+
+  // Troca de status sem recarregar a página
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('form[data-status-form], form[data-pay-form]'); if (!form || !e.submitter) return;
+    e.preventDefault();
+    var isPay = form.hasAttribute('data-pay-form');
+    var btn = e.submitter, card = form.closest('[data-card]');
+    var wasPending = card.dataset.status === 'pendente', upcoming = card.dataset.upcoming === '1';
+    btn.disabled = true;
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(isPay
+        ? { acao: btn.value, forma: form.elements.forma ? form.elements.forma.value : 'pix', showDate: form.dataset.showDate }
+        : { status: btn.value, showDate: form.dataset.showDate }),
+    }).then(function (r) { if (!r.ok) throw new Error(); return r.text(); }).then(function (html) {
+      var tpl = document.createElement('template'); tpl.innerHTML = html.trim();
+      var fresh = tpl.content.firstElementChild;
+      var isPending = fresh.dataset.status === 'pendente';
+      if (upcoming && wasPending !== isPending) setBadge(isPending ? 1 : -1);
+      if (VIEW === 'confirmar' && !isPending) {
+        card.style.transition = 'opacity .25s, transform .25s'; card.style.opacity = 0; card.style.transform = 'translateX(24px)';
+        setTimeout(function () { card.remove(); refresh(); }, 250);
+      } else {
+        card.replaceWith(fresh); refresh();
+      }
+      var who = card.querySelector('p.font-semibold').firstChild.textContent.trim();
+      toast(who + ' — ' + (isPay ? (btn.value === 'estornar' ? 'pagamento desfeito' : 'pagamento registrado ✓') : LABEL[fresh.dataset.status]));
+    }).catch(function () { btn.disabled = false; toast('Não foi possível atualizar. Tente de novo.'); });
+  });
+})();
+</script>
+</body>
+</html>

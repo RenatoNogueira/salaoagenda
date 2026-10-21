@@ -1,0 +1,225 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<main class="mx-auto max-w-3xl px-4 py-5 sm:py-8">
+  <h1 class="text-2xl font-extrabold">Personalização</h1>
+  <p class="text-slate-500">Nome, logo, cores e tema aparecem em todo o site de agendamento.</p>
+  <% if (saved) { %><p class="mt-4 rounded-lg bg-green-100 dark:bg-green-900/40 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300">Alterações salvas.</p><% } %>
+
+  <form method="post" action="/admin/configuracoes" enctype="multipart/form-data" class="mt-6 space-y-6">
+    <section class="card space-y-4">
+      <h2 class="font-bold">Identidade</h2>
+      <div>
+        <label class="label" for="name">Nome da empresa</label>
+        <input id="name" name="name" class="field" value="<%= settings.name %>" required maxlength="80">
+      </div>
+      <div>
+        <label class="label" for="document">CPF ou CNPJ do responsável</label>
+        <input id="document" name="document" class="field" data-mask="cpfcnpj" value="<%= ownerDocument %>" autocomplete="off">
+        <% if (docError) { %><p class="mt-1 text-xs font-medium text-red-600 dark:text-red-400">CPF/CNPJ inválido: as demais alterações foram salvas, mas este campo não foi alterado.</p><% } %>
+      </div>
+      <div>
+        <label class="label" for="email">E-mail do responsável <span class="font-normal text-slate-400">(recuperação de senha)</span></label>
+        <input id="email" name="email" type="email" class="field" maxlength="120" autocomplete="email" value="<%= ownerEmail %>" placeholder="voce@exemplo.com">
+        <% if (emailError) { %><p class="mt-1 text-xs font-medium text-red-600 dark:text-red-400">E-mail inválido: este campo não foi alterado.</p><% } %>
+        <% if (!ownerEmail) { %><p class="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">Cadastre um e-mail para poder recuperar a senha do painel.</p><% } %>
+        <% if (!mailReady) { %><p class="mt-1 text-xs text-slate-500">O envio de e-mails ainda não está configurado no servidor (veja o arquivo <code>.env.example</code>).</p><% } %>
+      </div>
+      <div>
+        <label class="label" for="tagline">Frase de apresentação</label>
+        <input id="tagline" name="tagline" class="field" value="<%= settings.tagline %>" maxlength="120">
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <img id="logo-preview" src="<%= settings.logo %>" alt="Logo atual" class="h-20 w-20 rounded-full object-cover ring-1 ring-slate-200">
+        <div class="space-y-2">
+          <label class="label" for="logo">Logo (PNG, JPG, WEBP ou SVG · até 2 MB)</label>
+          <input id="logo" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp,.svg" class="block text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-semibold file:text-brand">
+          <% if (settings.logo !== '/img/logo-default.svg') { %>
+            <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" name="removeLogo" value="1"> Remover logo e voltar ao padrão</label>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <section class="card space-y-5">
+      <div>
+        <h2 class="font-bold">Aparência</h2>
+        <p class="text-sm text-slate-500">As mudanças aparecem na hora aqui no painel. Só valem para todo o site depois de salvar.</p>
+      </div>
+
+      <div>
+        <p class="label">Paletas prontas</p>
+        <div id="presets" class="flex flex-wrap gap-2">
+          <% [['Rosa e laranja','#be185d','#f97316'],['Roxo e rosa','#7c3aed','#ec4899'],['Azul-petróleo','#0d9488','#0ea5e9'],['Vinho e coral','#9f1239','#fb7185'],['Dourado','#a16207','#f59e0b'],['Grafite e menta','#334155','#10b981']].forEach(([n, c, a]) => { %>
+            <button type="button" data-color="<%= c %>" data-accent="<%= a %>" class="flex min-h-[44px] items-center gap-2 rounded-full border border-slate-300 bg-surface py-1.5 pl-1.5 pr-4 text-sm font-medium hover:border-brand">
+              <span class="h-7 w-7 rounded-full" style="background-image:linear-gradient(135deg,<%= c %>,<%= a %>)"></span><%= n %>
+            </button>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex items-center gap-3">
+          <input id="color" type="color" name="color" value="<%= settings.color %>" class="h-12 w-16 cursor-pointer rounded-xl border border-slate-300 bg-surface p-1">
+          <label class="label !mb-0" for="color">Cor principal<span class="block text-xs font-normal text-slate-500">botões, links e destaques</span></label>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="accent" type="color" name="accent" value="<%= settings.accent %>" class="h-12 w-16 cursor-pointer rounded-xl border border-slate-300 bg-surface p-1">
+          <label class="label !mb-0" for="accent">Cor de destaque<span class="block text-xs font-normal text-slate-500">degradês e detalhes</span></label>
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="label" for="defaultTheme">Tema padrão do site</label>
+          <select id="defaultTheme" name="defaultTheme" class="field">
+            <option value="dark" <%= settings.defaultTheme === 'dark' ? 'selected' : '' %>>Escuro</option>
+            <option value="light" <%= settings.defaultTheme === 'light' ? 'selected' : '' %>>Claro</option>
+            <option value="auto" <%= settings.defaultTheme === 'auto' ? 'selected' : '' %>>Automático (segue o celular)</option>
+          </select>
+          <p class="mt-1 text-xs text-slate-500">Quem já escolheu um tema pelo botão sol/lua continua com a escolha dela.</p>
+        </div>
+        <div>
+          <label class="label" for="radius">Cantos</label>
+          <select id="radius" name="radius" class="field">
+            <option value="reto" <%= settings.radius === 'reto' ? 'selected' : '' %>>Retos (clássico)</option>
+            <option value="moderno" <%= settings.radius === 'moderno' ? 'selected' : '' %>>Moderno</option>
+            <option value="suave" <%= settings.radius === 'suave' ? 'selected' : '' %>>Bem arredondados</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/80">
+        <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Pré-visualização</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="btn-primary pointer-events-none">Agendar horário</span>
+          <span class="btn-outline pointer-events-none">Botão secundário</span>
+          <span class="text-gradient text-2xl font-extrabold"><%= settings.name %></span>
+        </div>
+        <div class="card mt-3 flex items-center gap-3 !p-3">
+          <span class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-gradient font-bold text-white">C</span>
+          <div class="flex-1"><p class="font-semibold">Corte</p><p class="text-sm text-slate-500">60 min</p></div>
+          <span class="font-extrabold text-brand">R$ 90,00</span>
+        </div>
+      </div>
+      <p class="-mt-2 text-xs text-slate-500">Dica: prefira uma cor principal escura o bastante para o texto branco dos botões ficar legível.</p>
+    </section>
+
+    <section class="card space-y-4">
+      <div>
+        <h2 class="font-bold">Pagamento</h2>
+        <p class="text-sm text-slate-500">Mostrado à cliente depois de agendar. Você registra os pagamentos recebidos na Agenda.</p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label class="label" for="depositPercent">Sinal (% do valor)</label>
+          <div class="relative"><input id="depositPercent" name="depositPercent" type="number" min="1" max="100" class="field !pr-10" value="<%= settings.depositPercent %>"><span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">%</span></div>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="label" for="pixKey">Chave Pix</label>
+          <input id="pixKey" name="pixKey" class="field" maxlength="120" value="<%= settings.pixKey %>" placeholder="CPF, e-mail, telefone ou chave aleatória">
+        </div>
+      </div>
+      <div>
+        <label class="label" for="payNote">Instruções (opcional)</label>
+        <input id="payNote" name="payNote" class="field" maxlength="200" value="<%= settings.payNote %>" placeholder="Ex.: Favorecido: Maria Silva. O restante é pago no dia.">
+      </div>
+    </section>
+
+    <section class="card space-y-4">
+      <div>
+        <h2 class="font-bold">Clientes ativas</h2>
+        <p class="text-sm text-slate-500">Define quando uma cliente deixa de ser considerada ativa na tela Clientes.</p>
+      </div>
+      <div class="max-w-xs">
+        <label class="label" for="activeDays">Ativa se voltou nos últimos</label>
+        <div class="relative"><input id="activeDays" name="activeDays" type="number" min="7" max="365" class="field !pr-14" value="<%= settings.activeDays %>"><span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">dias</span></div>
+        <p class="mt-1 text-xs text-slate-500">Em risco: até <%= settings.activeDays * 2 %> dias. Depois disso: inativa.</p>
+      </div>
+    </section>
+
+    <section class="card space-y-4">
+      <h2 class="font-bold">Contato</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div><label class="label">Telefone</label><input name="phone" type="tel" data-mask="phone" class="field" value="<%= settings.phone %>"></div>
+        <div><label class="label">Endereço</label><input name="address" class="field" value="<%= settings.address %>" maxlength="120"></div>
+      </div>
+    </section>
+
+    <section class="card space-y-4">
+      <h2 class="font-bold">Funcionamento</h2>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div><label class="label">Abre às</label><input type="time" name="openTime" class="field" value="<%= settings.openTime %>" required></div>
+        <div><label class="label">Fecha às</label><input type="time" name="closeTime" class="field" value="<%= settings.closeTime %>" required></div>
+        <div><label class="label">Intervalo entre horários</label>
+          <select name="slotMinutes" class="field"><% [15,20,30,60].forEach(m => { %><option value="<%= m %>" <%= settings.slotMinutes === m ? 'selected' : '' %>><%= m %> min</option><% }) %></select></div>
+      </div>
+      <div class="grid grid-cols-2 items-start gap-x-4 gap-y-5 sm:grid-cols-3">
+        <div><label class="label">Pausa: início</label><input type="time" name="lunchStart" class="field" value="<%= settings.lunchStart %>"></div>
+        <div><label class="label">Pausa: fim</label><input type="time" name="lunchEnd" class="field" value="<%= settings.lunchEnd %>"></div>
+        <p class="col-span-2 -mt-3 text-xs text-slate-500 sm:col-span-1 sm:mt-7">Deixe em branco para não ter pausa.</p>
+        <div>
+          <label class="label" for="maxDaysAhead">Agenda aberta</label>
+          <div class="relative"><input id="maxDaysAhead" type="number" min="1" max="365" name="maxDaysAhead" class="field !pr-14" value="<%= settings.maxDaysAhead %>"><span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">dias</span></div>
+        </div>
+        <div>
+          <label class="label" for="minNoticeHours">Antecedência</label>
+          <div class="relative"><input id="minNoticeHours" type="number" min="0" max="72" name="minNoticeHours" class="field !pr-10" value="<%= settings.minNoticeHours %>"><span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">h</span></div>
+        </div>
+        <p class="col-span-2 -mt-3 text-xs text-slate-500 sm:col-span-1 sm:mt-7">Até quando e com quanta antecedência a cliente pode agendar.</p>
+      </div>
+      <div>
+        <p class="label">Dias de atendimento</p>
+        <div class="flex flex-wrap gap-2">
+          <% DAYS.forEach((d, i) => { %>
+            <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+              <input type="checkbox" name="openDays" value="<%= i %>" <%= settings.openDays.includes(i) ? 'checked' : '' %>> <%= d %>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <button class="btn-primary">Salvar alterações</button>
+  </form>
+
+  <form method="post" action="/admin/senha" class="card mt-8 space-y-4">
+    <h2 class="font-bold">Trocar senha do painel</h2>
+    <% if (senha === 'ok') { %><p class="rounded-lg bg-green-100 dark:bg-green-900/40 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300">Senha alterada.</p><% } %>
+    <% if (senha === 'erro') { %><p class="rounded-lg bg-red-100 dark:bg-red-900/40 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-300">Senha atual incorreta ou nova senha com menos de 6 caracteres.</p><% } %>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div><label class="label">Senha atual</label><input type="password" name="current" class="field" required autocomplete="current-password"></div>
+      <div><label class="label">Nova senha (mín. 6)</label><input type="password" name="next" class="field" required minlength="6" autocomplete="new-password"></div>
+    </div>
+    <button class="btn-outline">Alterar senha</button>
+  </form>
+</main>
+
+<script src="/js/theme.js"></script>
+<script src="/js/mask.js"></script>
+<script>
+  // Pré-visualização ao vivo: reaplica as variáveis de cor inline no <html>
+  (function () {
+    var root = document.documentElement;
+    var f = { color: document.getElementById('color'), accent: document.getElementById('accent'), radius: document.getElementById('radius') };
+    function apply() {
+      var t = Theme.build({ color: f.color.value, accent: f.accent.value, radius: f.radius.value });
+      var vars = root.classList.contains('dark') ? t.dark : t.light;
+      Object.keys(vars).forEach(function (k) { root.style.setProperty('--' + k, Theme.str(vars[k])); });
+      root.style.setProperty('--radius', t.radius);
+    }
+    ['input', 'change'].forEach(function (ev) { Object.keys(f).forEach(function (k) { f[k].addEventListener(ev, apply); }); });
+    new MutationObserver(apply).observe(root, { attributes: true, attributeFilter: ['class'] });
+    document.getElementById('presets').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-color]'); if (!b) return;
+      f.color.value = b.dataset.color; f.accent.value = b.dataset.accent; apply();
+    });
+  })();
+
+  document.getElementById('logo').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (f) document.getElementById('logo-preview').src = URL.createObjectURL(f);
+  });
+</script>
+</body>
+</html>

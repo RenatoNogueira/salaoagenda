@@ -1,0 +1,61 @@
+<%- include('../partials/head') %>
+<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-8">
+  <div class="mb-6 text-center">
+    <div class="mx-auto mb-3 w-fit rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30">
+      <img id="logo-preview" src="<%= settings.logo %>" alt="Logo" class="h-20 w-20 rounded-full bg-surface object-cover">
+    </div>
+    <h1 class="text-gradient text-2xl font-extrabold">Bem-vindo(a)!</h1>
+    <p class="mt-1 text-sm text-slate-500">Primeiro acesso: cadastre seu salão para começar. Leva menos de um minuto.</p>
+  </div>
+
+  <form method="post" action="/admin/cadastro" enctype="multipart/form-data" class="card space-y-4" novalidate>
+    <% if (error) { %><p class="rounded-xl bg-red-100 px-3 py-2 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300" role="alert"><%= error %></p><% } %>
+
+    <div>
+      <label class="label" for="logo">Logo do salão <span class="font-normal text-slate-400">(opcional)</span></label>
+      <input id="logo" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp,.svg" class="block w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-brand-soft file:px-4 file:py-2.5 file:font-semibold file:text-brand">
+      <p class="mt-1 text-xs text-slate-500">PNG, JPG, WEBP ou SVG · até 2 MB</p>
+    </div>
+
+    <div>
+      <label class="label" for="name">Nome do salão</label>
+      <input id="name" name="name" class="field" required maxlength="80" autocomplete="organization" value="<%= form.name %>" placeholder="Ex.: Studio Bela">
+    </div>
+
+    <div>
+      <label class="label" for="document">CPF ou CNPJ</label>
+      <input id="document" name="document" class="field" required data-mask="cpfcnpj" value="<%= form.document %>" autocomplete="off">
+    </div>
+
+    <div>
+      <label class="label" for="email">E-mail do responsável</label>
+      <input id="email" name="email" type="email" class="field" required maxlength="120" autocomplete="email" value="<%= form.email %>" placeholder="voce@exemplo.com">
+      <p class="mt-1 text-xs text-slate-500">Usado para recuperar a senha caso você esqueça.</p>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="label" for="password">Senha do painel</label>
+        <input id="password" name="password" type="password" class="field" required minlength="6" autocomplete="new-password">
+      </div>
+      <div>
+        <label class="label" for="password2">Repita a senha</label>
+        <input id="password2" name="password2" type="password" class="field" required minlength="6" autocomplete="new-password">
+      </div>
+    </div>
+    <p class="-mt-2 text-xs text-slate-500">Mínimo de 6 caracteres. Você usará esta senha para entrar no painel.</p>
+
+    <button class="btn-primary w-full py-3.5 text-base">Criar meu painel</button>
+  </form>
+  <a href="/" class="mt-4 text-center text-sm text-slate-500 hover:text-brand">← Ver o site</a>
+</main>
+
+<script src="/js/mask.js"></script>
+<script>
+  document.getElementById('logo').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (f) document.getElementById('logo-preview').src = URL.createObjectURL(f);
+  });
+</script>
+</body>
+</html>

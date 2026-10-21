@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta neutra por variáveis: o tema escuro só inverte estes valores.
+   --brand*, --accent e --radius vêm do <head> (public/js/theme.js) a partir das cores do painel. */
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+  button, a, input, select, textarea { touch-action: manipulation; }
+  /* 16px nos campos evita o zoom automático do iOS ao focar */
+  input, select, textarea { font-size: 1rem; }
+  body {
+    background-image:
+      radial-gradient(50rem 28rem at 85% -8%, rgb(var(--accent) / 0.10), transparent 70%),
+      radial-gradient(48rem 30rem at 5% -10%, rgb(var(--brand) / 0.12), transparent 70%);
+    background-repeat: no-repeat;
+  }
+  :root {
+    --radius: 16px;
+    --surface: 255 255 255;
+    --slate-50: 248 250 252;
+    --slate-100: 241 245 249;
+    --slate-200: 226 232 240;
+    --slate-300: 203 213 225;
+    --slate-400: 148 163 184;
+    --slate-500: 100 116 139;
+    --slate-600: 71 85 105;
+    --slate-700: 51 65 85;
+    --slate-800: 30 41 59;
+  }
+  .dark {
+    color-scheme: dark;
+    --surface: 30 41 59;
+    --slate-50: 11 18 32;
+    --slate-100: 51 65 85;
+    --slate-200: 51 65 85;
+    --slate-300: 71 85 105;
+    --slate-400: 148 163 184;
+    --slate-500: 160 174 192;
+    --slate-600: 203 213 225;
+    --slate-700: 226 232 240;
+    --slate-800: 241 245 249;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-50 disabled:cursor-not-allowed;
+    border-radius: calc(var(--radius) * 0.7);
+  }
+  .btn-primary {
+    @apply btn text-white shadow-lg shadow-brand/25;
+    background-image: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-outline { @apply btn border border-brand/50 text-brand hover:bg-brand-soft; }
+  .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+  .btn-sm { @apply min-h-[40px] px-3 py-1.5 text-xs; }
+
+  .field {
+    @apply min-h-[44px] w-full border border-slate-300 bg-surface px-3.5 py-2 text-base text-slate-800 shadow-sm transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
+    border-radius: calc(var(--radius) * 0.7);
+  }
+  .label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
+
+  .card {
+    @apply bg-surface p-4 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.12)] ring-1 ring-slate-200/80 sm:p-6;
+    border-radius: var(--radius);
+  }
+  .choice {
+    @apply cursor-pointer border-2 border-slate-200 bg-surface p-4 text-left transition active:scale-[0.98] hover:border-brand/60;
+    border-radius: calc(var(--radius) * 0.8);
+  }
+  .choice-active { @apply border-brand bg-brand-soft shadow-[0_0_0_4px_rgb(var(--brand)/0.15)]; }
+
+  .bg-brand-gradient { background-image: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2))); }
+  .text-gradient {
+    background-image: linear-gradient(90deg, rgb(var(--brand)), rgb(var(--accent)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .step-num {
+    @apply mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white;
+    background-image: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
+  }
+  .glass { @apply bg-surface/75 backdrop-blur-xl; }
+
+  /* Janelas modais (<dialog>): alertas de confirmação e cadastro */
+  dialog.modal {
+    @apply m-auto w-[calc(100%-2rem)] max-w-md border-0 bg-surface p-0 text-slate-800 shadow-2xl;
+    border-radius: calc(var(--radius) * 1.4);
+  }
+  dialog.modal::backdrop { background: rgb(2 6 23 / 0.6); backdrop-filter: blur(4px); }
+  dialog.modal[open] { animation: modal-in 0.2s ease-out; }
+  dialog.modal[open]::backdrop { animation: fade-in 0.2s ease-out; }
+}
+
+@keyframes modal-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+
+/* No celular o modal sobe da base da tela, como uma folha */
+@media (max-width: 639px) {
+  dialog.modal { margin: auto 0 0 0; width: 100%; max-width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0; padding-bottom: env(safe-area-inset-bottom); }
+  dialog.modal[open] { animation: sheet-in 0.25s ease-out; }
+}
+body:has(dialog[open]) { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { dialog.modal[open], dialog.modal[open]::backdrop { animation: none; } }

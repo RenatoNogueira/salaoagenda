@@ -1,0 +1,62 @@
+<%- include('partials/head') %>
+<%- include('partials/site-header') %>
+
+<main class="mx-auto max-w-lg px-4 pt-12">
+  <div class="card text-center">
+    <% if (appt.status === 'cancelado') { %>
+      <h1 class="text-2xl font-extrabold text-red-600 dark:text-red-400">Agendamento cancelado</h1>
+    <% } else { %>
+      <div class="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-brand-gradient text-3xl text-white shadow-lg shadow-brand/30">✓</div>
+      <h1 class="text-2xl font-extrabold">Agendamento recebido!</h1>
+      <p class="mt-1 text-slate-500">
+        Status: <strong class="text-slate-700"><%= { pendente: 'aguardando confirmação', confirmado: 'confirmado', concluido: 'concluído' }[appt.status] %></strong>
+      </p>
+    <% } %>
+
+    <dl class="mt-6 space-y-2 text-left text-sm">
+      <div class="flex justify-between"><dt class="text-slate-500">Serviço</dt><dd class="font-semibold"><%= service ? service.name : '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Profissional</dt><dd class="font-semibold"><%= professional ? professional.name : '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Data</dt><dd class="font-semibold"><%= dateBR(appt.date) %> às <%= appt.time %></dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Valor</dt><dd class="font-semibold"><%= service ? brl(service.price) : '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Cliente</dt><dd class="font-semibold"><%= appt.clientName %></dd></div>
+    </dl>
+
+    <% const money = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); %>
+    <% if (appt.status !== 'cancelado') { %>
+      <% if (pay.state === 'pago') { %>
+        <p class="mt-5 rounded-xl bg-green-100 p-3 text-sm font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-300">Pagamento confirmado ✓ (<%= money(pay.paid) %>)</p>
+      <% } else if (settings.pixKey || settings.payNote) { %>
+        <div class="mt-5 space-y-2 rounded-xl bg-brand-soft p-4 text-left text-sm">
+          <% if (pay.state === 'sinal') { %>
+            <p class="font-bold">Sinal recebido ✓ <span class="font-normal">(<%= money(pay.paid) %>). Falta <%= money(pay.remaining) %> para pagar no dia.</span></p>
+          <% } else { %>
+            <p class="font-bold">Garanta seu horário</p>
+            <p>Pague o sinal de <strong><%= settings.depositPercent %>% (<%= money(pay.deposit) %>)</strong> ou o valor total (<%= money(pay.total) %>) por Pix e avise o salão.</p>
+          <% } %>
+          <% if (settings.pixKey && pay.state !== 'sinal') { %>
+            <div class="flex items-center gap-2">
+              <code id="pix" class="min-w-0 flex-1 truncate rounded-lg bg-surface px-3 py-2 font-mono text-xs"><%= settings.pixKey %></code>
+              <button type="button" class="btn-outline btn-sm shrink-0" onclick="navigator.clipboard.writeText(document.getElementById('pix').textContent).then(()=>{this.textContent='Copiado ✓'})">Copiar chave</button>
+            </div>
+          <% } %>
+          <% if (settings.payNote) { %><p class="text-xs text-slate-600"><%= settings.payNote %></p><% } %>
+          <% if (waNumber && pay.state !== 'sinal') { %>
+            <a class="btn-primary btn-sm w-full" target="_blank" rel="noopener" href="https://wa.me/<%= waNumber %>?text=<%= encodeURIComponent('Olá! Fiz o pagamento do meu agendamento de ' + dateBR(appt.date) + ' às ' + appt.time + ' (' + appt.clientName + ').') %>">Enviar comprovante no WhatsApp</a>
+          <% } %>
+        </div>
+      <% } %>
+    <% } %>
+
+    <p class="mt-6 text-xs text-slate-400">Guarde esta página para consultar ou cancelar seu horário.</p>
+    <div class="mt-4 flex justify-center gap-3">
+      <a href="/" class="btn-ghost">Início</a>
+      <% if (appt.status === 'pendente' || appt.status === 'confirmado') { %>
+        <form method="post" action="/confirmacao/<%= appt.token %>/cancelar" data-title="Cancelar seu horário?" data-confirm="Seu horário de <%= dateBR(appt.date) %> às <%= appt.time %> será cancelado e liberado para outras clientes." data-ok="Sim, cancelar" data-tone="danger">
+          <button class="btn-outline">Cancelar horário</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</main>
+
+<%- include('partials/site-footer') %>

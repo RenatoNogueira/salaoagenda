@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="<%= settings.color %>">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="<%= settings.name %>">
+  <title><%= title %> · <%= settings.name %></title>
+  <link rel="icon" href="<%= settings.logo %>">
+  <link rel="apple-touch-icon" href="<%= settings.logo %>">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <script>
+    // Tema padrão vem do painel; a escolha da pessoa (botão sol/lua) tem prioridade.
+    (function () {
+      var saved = null, def = '<%= settings.defaultTheme %>';
+      try { saved = localStorage.getItem('theme'); } catch (e) {}
+      var mode = saved || def;
+      var dark = mode === 'auto' ? matchMedia('(prefers-color-scheme: dark)').matches : mode !== 'light';
+      document.documentElement.classList.toggle('dark', dark);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css?v=<%= cssVersion %>">
+  <script src="/js/dialogs.js?v=<%= cssVersion %>" defer></script>
+  <style id="theme-vars">
+    :root{<%- theme.lightCss %>}
+    .dark{<%- theme.darkCss %>}
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 font-sans text-slate-800 antialiased">

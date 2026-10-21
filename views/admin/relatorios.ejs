@@ -1,0 +1,35 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <h1 class="text-2xl font-extrabold">Relatórios</h1>
+    <form method="get"><input type="month" name="mes" value="<%= month %>" class="field !w-auto" onchange="this.form.submit()"></form>
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="card"><p class="text-sm text-slate-500">Recebido no mês (pagamentos)</p><p class="mt-1 text-3xl font-extrabold text-green-600 dark:text-green-400"><%= brl(received) %></p></div>
+    <div class="card"><p class="text-sm text-slate-500">Faturamento (concluídos)</p><p class="mt-1 text-3xl font-extrabold text-brand"><%= brl(revenue) %></p></div>
+    <div class="card"><p class="text-sm text-slate-500">Previsto (pendentes e confirmados)</p><p class="mt-1 text-3xl font-extrabold"><%= brl(expected) %></p></div>
+    <div class="card"><p class="text-sm text-slate-500">Agendamentos no mês</p><p class="mt-1 text-3xl font-extrabold"><%= counts.total %></p>
+      <p class="text-xs text-slate-500"><%= counts.concluido %> concluídos · <%= counts.confirmado + counts.pendente %> em aberto · <%= counts.cancelado %> cancelados</p></div>
+  </div>
+
+  <div class="mt-6 grid gap-4 md:grid-cols-2">
+    <% [['Serviços mais rentáveis', byService], ['Por profissional', byPro]].forEach(([titulo, rows]) => { %>
+      <section class="card">
+        <h2 class="mb-3 font-bold"><%= titulo %></h2>
+        <% if (!rows.length) { %><p class="text-sm text-slate-500">Sem atendimentos concluídos neste mês.</p><% } %>
+        <% const max = rows.length ? rows[0].total || 1 : 1; %>
+        <% rows.forEach(r => { %>
+          <div class="mb-3">
+            <div class="flex justify-between text-sm"><span><%= r.label %> <span class="text-slate-400">· <%= r.count %>x</span></span><strong><%= brl(r.total) %></strong></div>
+            <div class="mt-1 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-brand" style="width: <%= Math.round((r.total / max) * 100) %>%"></div></div>
+          </div>
+        <% }) %>
+      </section>
+    <% }) %>
+  </div>
+</main>
+</body>
+</html>

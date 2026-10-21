@@ -1,0 +1,114 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<%
+  const money = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const kinds = { sinal: 'Sinal', total: 'À vista', restante: 'Restante' };
+  const kindColor = { sinal: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', total: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', restante: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' };
+  const methodIcon = { pix: '◆', dinheiro: '＄', cartao: '▭' };
+  const maxDay = byDay.reduce((m, x) => Math.max(m, x.total), 0) || 1;
+  const hm = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const csvUrl = '/admin/entradas.csv?de=' + from + '&ate=' + to;
+%>
+
+<main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-extrabold">Entradas</h1>
+      <p class="text-sm text-slate-500">Pagamentos recebidos de <%= dateBR(from) %> a <%= dateBR(to) %>.</p>
+    </div>
+    <a href="<%= csvUrl %>" class="btn-outline btn-sm">⬇ Baixar CSV (Excel)</a>
+  </div>
+
+  <!-- Período -->
+  <div class="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+    <% presets.forEach(([label, f, t]) => { const on = f === from && t === to; %>
+      <a href="/admin/entradas?de=<%= f %>&ate=<%= t %>" class="min-h-[40px] shrink-0 rounded-full border-2 px-4 py-2 text-sm font-semibold <%= on ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-surface text-slate-600' %>"><%= label %></a>
+    <% }) %>
+  </div>
+  <form method="get" class="mt-3 flex flex-wrap items-end gap-2">
+    <div><label class="label" for="de">De</label><input id="de" type="date" name="de" value="<%= from %>" class="field !w-auto"></div>
+    <div><label class="label" for="ate">Até</label><input id="ate" type="date" name="ate" value="<%= to %>" class="field !w-auto"></div>
+    <button class="btn-primary">Filtrar</button>
+  </form>
+
+  <!-- Totais -->
+  <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="card col-span-2 !p-4 lg:col-span-1"><p class="text-sm text-slate-500">Total recebido</p><p class="mt-1 text-3xl font-extrabold text-green-600 dark:text-green-400"><%= money(total) %></p></div>
+    <div class="card !p-4"><p class="text-sm text-slate-500">Lançamentos</p><p class="mt-1 text-3xl font-extrabold"><%= count %></p></div>
+    <div class="card !p-4"><p class="text-sm text-slate-500">Valor médio</p><p class="mt-1 text-2xl font-extrabold sm:text-3xl"><%= money(count ? total / count : 0) %></p></div>
+    <div class="card !p-4"><p class="text-sm text-slate-500">A receber (em aberto)</p><p class="mt-1 text-2xl font-extrabold text-amber-600 dark:text-amber-400 sm:text-3xl"><%= money(open) %></p></div>
+  </div>
+
+  <div class="mt-4 grid gap-4 md:grid-cols-2">
+    <!-- Por forma de pagamento -->
+    <section class="card">
+      <h2 class="mb-3 font-bold">Por forma de pagamento</h2>
+      <% byMethod.forEach(m => { const pct = total ? Math.round((m.total / total) * 100) : 0; %>
+        <div class="mb-3">
+          <div class="flex justify-between text-sm"><span><%= methodIcon[m.key] %> <%= m.label %> <span class="text-slate-400">· <%= m.count %>x · <%= pct %>%</span></span><strong><%= money(m.total) %></strong></div>
+          <div class="mt-1 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-brand-gradient" style="width: <%= pct %>%"></div></div>
+        </div>
+      <% }) %>
+    </section>
+
+    <!-- Por dia -->
+    <section class="card">
+      <h2 class="mb-3 font-bold">Por dia</h2>
+      <% if (!byDay.length) { %><p class="text-sm text-slate-500">Nenhuma entrada no período.</p><% } %>
+      <div class="max-h-64 space-y-2 overflow-y-auto pr-1">
+        <% byDay.forEach(x => { %>
+          <div class="flex items-center gap-3 text-sm">
+            <span class="w-12 shrink-0 text-slate-500"><%= dateBR(x.day).slice(0, 5) %></span>
+            <div class="h-3 flex-1 rounded-full bg-slate-100"><div class="h-3 rounded-full bg-green-500" style="width: <%= Math.max(3, Math.round((x.total / maxDay) * 100)) %>%"></div></div>
+            <strong class="w-24 shrink-0 text-right"><%= money(x.total) %></strong>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  </div>
+
+  <!-- Lançamentos -->
+  <h2 class="mb-3 mt-8 font-bold">Lançamentos</h2>
+  <% if (!entries.length) { %><div class="card text-center text-slate-500">Nenhuma entrada neste período.</div><% } %>
+
+  <div class="space-y-2 md:hidden">
+    <% entries.forEach(e => { %>
+      <div class="card flex items-center justify-between gap-3 !p-3">
+        <div class="min-w-0">
+          <p class="truncate font-semibold"><%= e.client %></p>
+          <p class="text-xs text-slate-500"><%= e.service %> · <%= payMethods[e.method] %> · <%= dateBR(e.day).slice(0, 5) %> <%= hm(e.at) %></p>
+        </div>
+        <div class="shrink-0 text-right">
+          <p class="font-extrabold text-green-600 dark:text-green-400"><%= money(e.amount) %></p>
+          <span class="rounded-full px-2 py-0.5 text-[11px] font-medium <%= kindColor[e.kind] %>"><%= kinds[e.kind] %></span>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <% if (entries.length) { %>
+  <div class="card hidden overflow-x-auto !p-0 md:block">
+    <table class="w-full text-left text-sm">
+      <thead class="border-b border-slate-200 text-xs uppercase text-slate-500">
+        <tr><th class="px-4 py-3">Data</th><th class="px-4 py-3">Cliente</th><th class="px-4 py-3">Serviço</th><th class="px-4 py-3">Forma</th><th class="px-4 py-3">Tipo</th><th class="px-4 py-3 text-right">Valor</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <% entries.forEach(e => { %>
+          <tr>
+            <td class="whitespace-nowrap px-4 py-3"><%= dateBR(e.day) %> <span class="text-slate-400"><%= hm(e.at) %></span></td>
+            <td class="px-4 py-3 font-semibold"><%= e.client %></td>
+            <td class="px-4 py-3"><%= e.service %> <span class="text-xs text-slate-400">· <%= dateBR(e.apptDate).slice(0, 5) %></span></td>
+            <td class="px-4 py-3"><%= payMethods[e.method] %></td>
+            <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-xs font-medium <%= kindColor[e.kind] %>"><%= kinds[e.kind] %></span></td>
+            <td class="px-4 py-3 text-right font-bold"><%= money(e.amount) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+      <tfoot class="border-t border-slate-200"><tr><td colspan="5" class="px-4 py-3 text-right font-semibold">Total</td><td class="px-4 py-3 text-right font-extrabold text-green-600 dark:text-green-400"><%= money(total) %></td></tr></tfoot>
+    </table>
+  </div>
+  <% } %>
+</main>
+</body>
+</html>

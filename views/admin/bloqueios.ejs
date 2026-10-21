@@ -1,0 +1,26 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<main class="mx-auto max-w-3xl px-4 py-5 sm:py-8">
+  <h1 class="text-2xl font-extrabold">Bloqueios de agenda</h1>
+  <p class="text-slate-500">Feriados, folgas ou viagens: nos dias bloqueados ninguém consegue agendar.</p>
+
+  <form method="post" action="/admin/bloqueios" class="card mt-6 grid gap-3 sm:grid-cols-4 sm:items-end">
+    <div><label class="label">De</label><input type="date" name="from" min="<%= today %>" class="field" required></div>
+    <div><label class="label">Até (opcional)</label><input type="date" name="to" min="<%= today %>" class="field"></div>
+    <div><label class="label">Motivo</label><input name="reason" maxlength="80" class="field" placeholder="Ex.: Feriado"></div>
+    <button class="btn-primary">Bloquear</button>
+  </form>
+
+  <div class="mt-6 space-y-2">
+    <% if (!blocks.length) { %><div class="card text-center text-slate-500">Nenhum dia bloqueado.</div><% } %>
+    <% blocks.forEach(b => { %>
+      <div class="card flex items-center justify-between !p-3 <%= b.date < today ? 'opacity-50' : '' %>">
+        <p><strong><%= dateBR(b.date) %></strong> <span class="text-sm text-slate-500"><%= b.reason ? '· ' + b.reason : '' %></span></p>
+        <form method="post" action="/admin/bloqueios/<%= b.id %>/excluir"><button class="btn-ghost btn-sm text-red-600 dark:text-red-400" data-title="Remover bloqueio?" data-confirm="O dia <%= dateBR(b.date) %> voltará a aceitar agendamentos." data-ok="Sim, remover" data-tone="danger">Remover</button></form>
+      </div>
+    <% }) %>
+  </div>
+</main>
+</body>
+</html>

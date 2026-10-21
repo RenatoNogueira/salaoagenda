@@ -1,0 +1,21 @@
+<%- include('../partials/head') %>
+<main class="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+  <div class="mb-6 text-center">
+    <div class="mx-auto mb-3 w-fit rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30"><img src="<%= settings.logo %>" alt="" class="h-16 w-16 rounded-full bg-surface object-cover"></div>
+    <h1 class="text-gradient text-2xl font-extrabold"><%= settings.name %></h1>
+    <p class="text-sm text-slate-500">Área do salão</p>
+  </div>
+  <form method="post" action="/admin/login" class="card space-y-4">
+    <div>
+      <label class="label" for="password">Senha</label>
+      <input type="password" id="password" name="password" class="field" required autofocus>
+    </div>
+    <% if (typeof notice !== 'undefined' && notice) { %><p class="rounded-xl bg-green-100 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300" role="status"><%= notice %></p><% } %>
+    <% if (error) { %><p class="text-sm font-medium text-red-600 dark:text-red-400" role="alert"><%= error %></p><% } %>
+    <button class="btn-primary w-full">Entrar</button>
+    <a href="/admin/recuperar" class="block py-1 text-center text-sm text-slate-500 hover:text-brand">Esqueci minha senha</a>
+  </form>
+  <a href="/" class="mt-4 text-center text-sm text-slate-500 hover:text-brand">← Voltar ao site</a>
+</main>
+</body>
+</html>
