@@ -11,7 +11,7 @@
     mais: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
   };
   const icon = (k, cls = 'h-6 w-6') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[k]}</svg>`;
-  const items = [['agenda',base + '/admin','Agenda'],['entradas',base + '/admin/entradas','Entradas'],['clientes',base + '/admin/clientes','Clientes'],['relatorios',base + '/admin/relatorios','Relatórios'],['servicos',base + '/admin/servicos','Serviços'],['profissionais',base + '/admin/profissionais','Profissionais'],['bloqueios',base + '/admin/bloqueios','Bloqueios'],['config',base + '/admin/configuracoes','Personalização']];
+  const items = [['agenda','/admin','Agenda'],['entradas','/admin/entradas','Entradas'],['clientes','/admin/clientes','Clientes'],['relatorios','/admin/relatorios','Relatórios'],['servicos','/admin/servicos','Serviços'],['profissionais','/admin/profissionais','Profissionais'],['bloqueios','/admin/bloqueios','Bloqueios'],['config','/admin/configuracoes','Personalização']];
   const main = items.slice(0, 3); // Agenda, Entradas, Clientes ficam na barra inferior
   const more = items.slice(3);
 %>
@@ -20,17 +20,17 @@
 <!-- Topo -->
 <header class="border-b border-slate-200 bg-surface pt-[env(safe-area-inset-top)]">
   <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
-    <a href="<%= base %>/admin" class="flex min-w-0 items-center gap-3">
-      <img src="<%= asset(settings.logo) %>" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover">
+    <a href="/admin" class="flex min-w-0 items-center gap-3">
+      <img src="<%= settings.logo %>" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover">
       <span class="truncate font-extrabold"><%= settings.name %></span>
     </a>
     <nav class="hidden items-center gap-1 text-sm font-medium md:flex">
       <% items.forEach(([key, href, label]) => { %>
         <a href="<%= href %>" class="rounded-lg px-3 py-2 <%= section === key ? 'bg-brand-soft text-brand' : 'text-slate-600 hover:bg-slate-100' %>"><%= label %></a>
       <% }) %>
-      <a href="<%= base %>/" target="_blank" class="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100">Ver site ↗</a>
+      <a href="/" target="_blank" class="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100">Ver site ↗</a>
       <%- include('theme-toggle') %>
-      <form method="post" action="<%= base %>/admin/logout"><button class="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100">Sair</button></form>
+      <form method="post" action="/admin/logout"><button class="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100">Sair</button></form>
     </nav>
     <div class="md:hidden"><%- include('theme-toggle') %></div>
   </div>
@@ -55,8 +55,8 @@
       <% more.forEach(([key, href, label]) => { %>
         <li><a href="<%= href %>" class="flex min-h-[48px] items-center gap-3 rounded-xl px-3 font-medium <%= section === key ? 'bg-brand-soft text-brand' : 'text-slate-700' %>"><%- icon(key, 'h-5 w-5') %><%= label %></a></li>
       <% }) %>
-      <li><a href="<%= base %>/" target="_blank" class="flex min-h-[48px] items-center gap-3 rounded-xl px-3 font-medium text-slate-700">↗ Ver site</a></li>
-      <li><form method="post" action="<%= base %>/admin/logout"><button class="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 font-medium text-slate-500">Sair</button></form></li>
+      <li><a href="/" target="_blank" class="flex min-h-[48px] items-center gap-3 rounded-xl px-3 font-medium text-slate-700">↗ Ver site</a></li>
+      <li><form method="post" action="/admin/logout"><button class="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 font-medium text-slate-500">Sair</button></form></li>
     </ul>
   </div>
 </div>

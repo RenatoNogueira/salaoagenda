@@ -8,7 +8,7 @@
   const methodIcon = { pix: '◆', dinheiro: '＄', cartao: '▭' };
   const maxDay = byDay.reduce((m, x) => Math.max(m, x.total), 0) || 1;
   const hm = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const csvUrl = base + '/admin/entradas.csv?de=' + from + '&ate=' + to;
+  const csvUrl = '/admin/entradas.csv?de=' + from + '&ate=' + to;
 %>
 
 <main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
@@ -23,7 +23,7 @@
   <!-- Período -->
   <div class="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
     <% presets.forEach(([label, f, t]) => { const on = f === from && t === to; %>
-      <a href="<%= base %>/admin/entradas?de=<%= f %>&ate=<%= t %>" class="min-h-[40px] shrink-0 rounded-full border-2 px-4 py-2 text-sm font-semibold <%= on ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-surface text-slate-600' %>"><%= label %></a>
+      <a href="/admin/entradas?de=<%= f %>&ate=<%= t %>" class="min-h-[40px] shrink-0 rounded-full border-2 px-4 py-2 text-sm font-semibold <%= on ? 'border-brand bg-brand-soft text-brand' : 'border-slate-200 bg-surface text-slate-600' %>"><%= label %></a>
     <% }) %>
   </div>
   <form method="get" class="mt-3 flex flex-wrap items-end gap-2">

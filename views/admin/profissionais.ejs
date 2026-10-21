@@ -4,7 +4,7 @@
 <main class="mx-auto max-w-5xl px-4 py-5 sm:py-8">
   <h1 class="text-2xl font-extrabold">Profissionais</h1>
 
-  <form method="post" action="<%= base %>/admin/profissionais" class="card mt-6 grid gap-3 sm:grid-cols-4 sm:items-end">
+  <form method="post" action="/admin/profissionais" class="card mt-6 grid gap-3 sm:grid-cols-4 sm:items-end">
     <div class="sm:col-span-3"><label class="label">Novo profissional</label><input name="name" class="field" required placeholder="Nome"></div>
     <button class="btn-primary">Adicionar</button>
   </form>
@@ -12,12 +12,12 @@
   <div class="mt-6 space-y-3">
     <% professionals.forEach(p => { %>
       <div class="card !p-4">
-        <form method="post" action="<%= base %>/admin/profissionais" class="grid gap-3 sm:grid-cols-4 sm:items-center">
+        <form method="post" action="/admin/profissionais" class="grid gap-3 sm:grid-cols-4 sm:items-center">
           <input type="hidden" name="id" value="<%= p.id %>">
           <div class="sm:col-span-3"><input name="name" value="<%= p.name %>" class="field" required></div>
           <div class="flex flex-wrap gap-2">
             <button class="btn-outline btn-sm">Salvar</button>
-            <button class="btn-ghost btn-sm text-red-600 dark:text-red-400" formaction="<%= base %>/admin/profissionais/<%= p.id %>/excluir" data-title="Excluir profissional?" data-confirm="<%= p.name %> será removido(a) da equipe. Os agendamentos já feitos continuam no histórico." data-ok="Sim, excluir" data-tone="danger">Excluir</button>
+            <button class="btn-ghost btn-sm text-red-600 dark:text-red-400" formaction="/admin/profissionais/<%= p.id %>/excluir" data-title="Excluir profissional?" data-confirm="<%= p.name %> será removido(a) da equipe. Os agendamentos já feitos continuam no histórico." data-ok="Sim, excluir" data-tone="danger">Excluir</button>
           </div>
         </form>
       </div>

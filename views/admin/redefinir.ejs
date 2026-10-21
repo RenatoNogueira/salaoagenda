@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <main class="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
   <div class="mb-6 text-center">
-    <div class="mx-auto mb-3 w-fit rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30"><img src="<%= asset(settings.logo) %>" alt="" class="h-16 w-16 rounded-full bg-surface object-cover"></div>
+    <div class="mx-auto mb-3 w-fit rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30"><img src="<%= settings.logo %>" alt="" class="h-16 w-16 rounded-full bg-surface object-cover"></div>
     <h1 class="text-gradient text-2xl font-extrabold">Nova senha</h1>
     <p class="text-sm text-slate-500"><%= settings.name %></p>
   </div>
@@ -10,7 +10,7 @@
     <div class="card space-y-3 text-center">
       <h2 class="text-lg font-extrabold">Link inválido ou expirado</h2>
       <p class="text-sm text-slate-500">Este link já foi usado ou passou de 30 minutos. Peça um novo link.</p>
-      <a href="<%= base %>/admin/recuperar" class="btn-primary w-full">Pedir novo link</a>
+      <a href="/admin/recuperar" class="btn-primary w-full">Pedir novo link</a>
     </div>
   <% } else { %>
     <form method="post" class="card space-y-4">

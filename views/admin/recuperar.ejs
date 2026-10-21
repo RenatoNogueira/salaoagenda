@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <main class="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
   <div class="mb-6 text-center">
-    <div class="mx-auto mb-3 w-fit rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30"><img src="<%= asset(settings.logo) %>" alt="" class="h-16 w-16 rounded-full bg-surface object-cover"></div>
+    <div class="mx-auto mb-3 w-fit rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30"><img src="<%= settings.logo %>" alt="" class="h-16 w-16 rounded-full bg-surface object-cover"></div>
     <h1 class="text-gradient text-2xl font-extrabold">Recuperar senha</h1>
     <p class="text-sm text-slate-500"><%= settings.name %></p>
   </div>
@@ -12,10 +12,10 @@
       <h2 class="text-lg font-extrabold">Verifique seu e-mail</h2>
       <p class="text-sm text-slate-500">Se o e-mail informado for o do responsável pelo salão, enviamos um link para criar uma nova senha. Ele vale por <strong>30 minutos</strong>.</p>
       <p class="text-xs text-slate-400">Não chegou? Veja a caixa de spam e aguarde 1 minuto antes de pedir de novo.</p>
-      <a href="<%= base %>/admin/login" class="btn-primary w-full">Voltar ao login</a>
+      <a href="/admin/login" class="btn-primary w-full">Voltar ao login</a>
     </div>
   <% } else { %>
-    <form method="post" action="<%= base %>/admin/recuperar" class="card space-y-4">
+    <form method="post" action="/admin/recuperar" class="card space-y-4">
       <p class="text-sm text-slate-500">Digite o e-mail cadastrado como responsável pelo salão. Enviaremos um link para você criar uma nova senha.</p>
       <div>
         <label class="label" for="email">E-mail</label>
@@ -24,7 +24,7 @@
       <% if (error) { %><p class="text-sm font-medium text-red-600 dark:text-red-400" role="alert"><%= error %></p><% } %>
       <button class="btn-primary w-full">Enviar link</button>
     </form>
-    <a href="<%= base %>/admin/login" class="mt-4 text-center text-sm text-slate-500 hover:text-brand">← Voltar ao login</a>
+    <a href="/admin/login" class="mt-4 text-center text-sm text-slate-500 hover:text-brand">← Voltar ao login</a>
   <% } %>
 </main>
 </body>

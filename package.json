@@ -2,14 +2,14 @@
   "name": "agendamento-cabeleireiro",
   "version": "1.0.0",
   "private": true,
-  "description": "Plataforma multiempresa de agendamento para salões (Express + EJS + Tailwind), dados em JSON, pronta para a Vercel",
+  "description": "Sistema de agendamento para salão de beleza (Express + EJS + Tailwind), dados em JSON, pronto para a Vercel",
   "main": "server.js",
   "scripts": {
     "build:css": "tailwindcss -i ./src/input.css -o ./public/css/app.css --minify",
     "watch:css": "tailwindcss -i ./src/input.css -o ./public/css/app.css --watch",
     "start": "npm run build:css && node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
-    "migrate:db": "node --env-file-if-exists=.env scripts/migrate-to-tenant.js"
+    "migrate:db": "node --env-file-if-exists=.env scripts/migrate-to-blob.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",

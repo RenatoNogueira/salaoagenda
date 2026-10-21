@@ -6,7 +6,7 @@
   <p class="text-slate-500">Nome, logo, cores e tema aparecem em todo o site de agendamento.</p>
   <% if (saved) { %><p class="mt-4 rounded-lg bg-green-100 dark:bg-green-900/40 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300">Alterações salvas.</p><% } %>
 
-  <form method="post" action="<%= base %>/admin/configuracoes" enctype="multipart/form-data" class="mt-6 space-y-6">
+  <form method="post" action="/admin/configuracoes" enctype="multipart/form-data" class="mt-6 space-y-6">
     <section class="card space-y-4">
       <h2 class="font-bold">Identidade</h2>
       <div>
@@ -30,7 +30,7 @@
         <input id="tagline" name="tagline" class="field" value="<%= settings.tagline %>" maxlength="120">
       </div>
       <div class="flex flex-wrap items-center gap-4">
-        <img id="logo-preview" src="<%= asset(settings.logo) %>" alt="Logo atual" class="h-20 w-20 rounded-full object-cover ring-1 ring-slate-200">
+        <img id="logo-preview" src="<%= settings.logo %>" alt="Logo atual" class="h-20 w-20 rounded-full object-cover ring-1 ring-slate-200">
         <div class="space-y-2">
           <label class="label" for="logo">Logo (PNG, JPG, WEBP ou SVG · até 2 MB)</label>
           <input id="logo" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp,.svg" class="block text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-semibold file:text-brand">
@@ -183,7 +183,7 @@
     <button class="btn-primary">Salvar alterações</button>
   </form>
 
-  <form method="post" action="<%= base %>/admin/senha" class="card mt-8 space-y-4">
+  <form method="post" action="/admin/senha" class="card mt-8 space-y-4">
     <h2 class="font-bold">Trocar senha do painel</h2>
     <% if (senha === 'ok') { %><p class="rounded-lg bg-green-100 dark:bg-green-900/40 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300">Senha alterada.</p><% } %>
     <% if (senha === 'erro') { %><p class="rounded-lg bg-red-100 dark:bg-red-900/40 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-300">Senha atual incorreta ou nova senha com menos de 6 caracteres.</p><% } %>

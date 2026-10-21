@@ -1,21 +1,8 @@
-# Plataforma de agendamento para salões (multiempresa)
+# Sistema de agendamento para salão
 
-Express + EJS + Tailwind. **Vários salões** (empresas) no mesmo sistema, cada um com o seu endereço, site de agendamento, painel e dados, totalmente separados. Sem banco de dados: cada salão é um arquivo JSON.
+Express + EJS + Tailwind. Site de agendamento para as clientes e painel do salão (agenda, pagamentos, clientes, relatórios e personalização de logo, nome e cores).
 
-```
-https://seusite.com/                  página da plataforma ("Criar meu salão")
-https://seusite.com/criar             cadastro de um salão novo
-https://seusite.com/studiobela        site de agendamento do salão "studiobela"
-https://seusite.com/studiobela/admin  painel desse salão
-```
-
-## Como o isolamento funciona
-
-- **Endereço próprio:** cada salão escolhe um endereço (`/studiobela`) no cadastro. Ele não pode ser trocado depois e nunca é reaproveitado: se já existe, o cadastro é recusado e **nada é sobrescrito**.
-- **Dados separados:** cada salão tem o próprio arquivo (`data/<salao>/db.json` no computador, `tenants/<salao>/db.json` no Blob). Um pedido só carrega o arquivo do salão da URL.
-- **Logins separados:** o cookie do painel é por salão (nome e caminho próprios) e a assinatura inclui o endereço e a senha do salão. Um cookie de um salão não abre o painel de outro, nem se for copiado.
-- **Clientes separadas:** o cadastro de cliente (nome + telefone) também é por salão. O mesmo telefone em dois salões gera dois cadastros independentes.
-- **Gravações seguras:** pedidos no mesmo salão são conferidos por ETag (sem horário duplicado nem perda de alterações); salões diferentes nunca disputam nada.
+**Sem banco de dados:** todos os dados ficam em um arquivo JSON.
 
 ## Rodar no seu computador
 
@@ -24,49 +11,55 @@ npm install
 npm start
 ```
 
-Abra http://localhost:3000 e clique em **Criar meu salão**. Os dados ficam em `data/<salao>/db.json`. Copie `.env.example` para `.env` para configurar e-mail e outras opções.
+Abra http://localhost:3000. Ao abrir `/admin` pela primeira vez, você faz o cadastro do salão (logo, nome, CPF/CNPJ, e-mail e senha).
+Localmente os dados ficam em `data/db.json` e as logos em `public/uploads`. Copie `.env.example` para `.env` para configurar o envio de e-mail.
 
 ## Publicar na Vercel
 
-A Vercel apaga os arquivos entre uma visita e outra, então um `db.json` comum se perderia. Em produção cada salão é um arquivo JSON no **Vercel Blob**. O app detecta sozinho: com as variáveis do Blob ele usa o Blob; sem elas usa arquivos locais.
+A Vercel apaga os arquivos entre uma visita e outra, então um `db.json` comum se perderia. Em produção o **mesmo arquivo JSON** é guardado no **Vercel Blob** (armazenamento de arquivos da Vercel, com plano gratuito). O app detecta sozinho: com `BLOB_READ_WRITE_TOKEN` ele usa o Blob; sem ela usa o arquivo local.
 
 1. **Suba o projeto** para o GitHub (`node_modules`, `data` e `.env` já estão no `.gitignore`).
 2. Na Vercel: **Add New → Project**, escolha o repositório e **Deploy**. O `vercel.json` já define o build e a função.
-3. **Conecte o Blob:** no projeto, aba **Storage → Create → Blob** (acesso **Private**) e conecte ao projeto, em todos os ambientes.
+3. **Conecte o Blob:** no projeto, aba **Storage → Create Database/Store → Blob**. Deixe o acesso **Private**, escolha a região e **conecte ao projeto** (todos os ambientes). Isso cria a variável `BLOB_READ_WRITE_TOKEN` sozinha.
 4. **Variáveis de ambiente** (Settings → Environment Variables):
 
    | Variável | Para quê |
    | --- | --- |
-   | `BLOB_READ_WRITE_TOKEN` ou `BLOB_STORE_ID` | criadas sozinhas ao conectar o Blob |
-   | `SESSION_SECRET` | texto longo e aleatório que assina os logins (**obrigatório em produção**) |
-   | `PUBLIC_URL` | endereço do site, ex.: `https://meusite.vercel.app` (link do e-mail de recuperação) |
-   | `PLATFORM_NAME` | nome da plataforma na página inicial (opcional) |
-   | `PLATFORM_SIGNUP_CODE` | código de convite para criar salões (opcional; sem ele qualquer pessoa cria) |
-   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | e-mail de recuperação de senha (veja `.env.example`) |
+   | `BLOB_READ_WRITE_TOKEN` | já criada pelo passo 3 |
+   | `SESSION_SECRET` | texto longo e aleatório que assina o login do painel (**obrigatório em produção**) |
+   | `PUBLIC_URL` | endereço do site, ex.: `https://meusalao.vercel.app` (link do e-mail de recuperação) |
+   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | envio do e-mail de recuperação de senha (veja `.env.example`) |
 
-5. **Redeploy** para as variáveis valerem.
-6. Abra `https://seu-site.vercel.app/criar` e cadastre o primeiro salão.
+5. **Redeploy** (Deployments → ⋯ → Redeploy) para as variáveis valerem.
+6. Abra `https://seu-site.vercel.app/admin`: aparece o **cadastro do salão** (primeiro acesso). Faça-o logo após publicar, pois quem abrir primeiro cria o acesso.
 
 > Gerar um `SESSION_SECRET`: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
-**Quem pode criar salões?** Por padrão, qualquer pessoa que abrir `/criar` (com limite de 5 cadastros por hora por IP). Para controlar, defina `PLATFORM_SIGNUP_CODE`: o formulário passa a pedir o código de convite.
+Se o Blob ainda não estiver conectado, o site mostra "Configuração pendente" explicando o que falta, em vez de dar erro.
 
-Se o Blob ainda não estiver conectado, o site mostra "Configuração pendente" explicando o que falta.
+**Private ou Public?** O recomendado é **Private**: só o servidor consegue ler o arquivo. Se o seu store foi criado como **Public**, o sistema percebe sozinho (o Blob responde `403` ao acesso privado) e passa a usar o modo público, guardando o arquivo de dados em um caminho com um trecho derivado do token, difícil de adivinhar. Funciona, mas qualquer pessoa que souber a URL exata consegue ler o arquivo (ele contém telefones das clientes e o hash da senha). Por isso, se puder, crie um store **Private** (Storage → Create → Blob → Private), conecte ao projeto, apague o antigo e faça um Redeploy. Para forçar um modo, use a variável `BLOB_ACCESS=private` ou `BLOB_ACCESS=public`.
 
-### Migrar o salão que você já tinha (versão de um salão só)
+### Levar os dados que já existem no seu computador
 
-Antes o sistema atendia um único salão (na raiz do site). Para levar esses dados para o formato novo:
+Se você já usou o sistema localmente e quer manter agendamentos, serviços e clientes:
 
-- **Automático (mais simples):** defina `MIGRATE_LEGACY_TO=meusalao` (o endereço que o salão terá) nas variáveis do ambiente (na Vercel, em Settings → Environment Variables, e Redeploy; no computador, no `.env`). No primeiro acesso a `/meusalao`, os dados antigos (agenda, clientes, serviços, senha, logo) são copiados. Os arquivos antigos **não são apagados**. Depois pode remover a variável.
-- **Por comando:** `npm run migrate:db -- meusalao` (copia `data/db.json`) ou `npm run migrate:db -- meusalao --from-blob` (copia o salão antigo do Blob). Use `--force` para sobrescrever um salão que já exista nesse endereço.
+```bash
+# PowerShell (pegue o token em Vercel → Storage → seu Blob → aba ".env.local")
+$env:BLOB_READ_WRITE_TOKEN="cole-aqui-o-token"; npm run migrate:db
+```
 
-A senha do painel é a mesma de antes; só é preciso entrar de novo, porque o cookie agora é por salão.
+O script copia `data/db.json` (e a logo enviada) para o Blob. Se o Blob já tiver um salão cadastrado, ele pede `--force` para sobrescrever.
+
+## Como funciona em produção
+
+- **Dados:** um arquivo `salao/db.json` privado no Blob; logos em `logos/`. Nada é público: o site lê e entrega pelo servidor.
+- **Gravações seguras:** cada gravação só vale se o arquivo não mudou desde que o pedido o leu (ETag). Se duas pessoas gravarem ao mesmo tempo, o pedido que "perdeu" é refeito automaticamente com os dados novos. No teste, 8 pedidos simultâneos para o mesmo horário resultaram em 1 aceito, e 6 pedidos em horários diferentes foram todos gravados.
+- **Login do painel:** cookie assinado (não depende de memória do servidor). Trocar ou redefinir a senha encerra as outras sessões.
+- **E-mail de recuperação:** enviado antes de a resposta terminar (necessário em serverless).
 
 ## Limites a ter em mente
 
-- Cada salão é um arquivo JSON: serve bem para salões (milhares de agendamentos). Para volumes muito maiores, vale migrar para um banco de dados.
-- Cada visita lê o arquivo do salão no Blob (uma chamada); o plano gratuito comporta o uso normal de alguns salões.
-- O endereço do salão (`/studiobela`) não muda e, por ser parte da URL, aparece em links e favoritos.
-- Não há (ainda) um painel do dono da plataforma para listar, suspender ou excluir salões; isso é feito diretamente no Blob/arquivos.
-- O limite de pedidos da recuperação de senha (5 por hora por IP) é em memória, então vale por instância; o intervalo mínimo de 1 minuto entre e-mails é guardado no arquivo do salão.
-- Para domínio próprio: Vercel → Settings → Domains, e atualize `PUBLIC_URL`.
+- É um único arquivo JSON: serve bem para um salão (milhares de agendamentos). Para muito mais volume, vale migrar para um banco de dados.
+- Cada visita lê o arquivo no Blob (uma chamada); o plano gratuito comporta o uso normal de um salão.
+- O limite de pedidos da recuperação de senha (5 por hora por IP) é em memória, então vale por instância; o intervalo mínimo de 1 minuto entre e-mails é global (guardado no arquivo de dados).
+- Para o domínio próprio: Vercel → Settings → Domains, e atualize `PUBLIC_URL`.

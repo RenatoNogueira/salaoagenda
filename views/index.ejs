@@ -7,7 +7,7 @@
     <div class="pointer-events-none absolute -right-24 top-16 h-72 w-72 rounded-full bg-accent/25 blur-3xl"></div>
     <div class="relative mx-auto flex max-w-5xl flex-col items-center px-4 pb-12 pt-10 text-center sm:pb-20 sm:pt-20">
       <div class="rounded-full bg-brand-gradient p-1 shadow-xl shadow-brand/30">
-        <img src="<%= asset(settings.logo) %>" alt="" class="h-24 w-24 rounded-full bg-surface object-cover ring-4 ring-surface sm:h-28 sm:w-28">
+        <img src="<%= settings.logo %>" alt="" class="h-24 w-24 rounded-full bg-surface object-cover ring-4 ring-surface sm:h-28 sm:w-28">
       </div>
       <% if (customer) { %><p class="mt-5 rounded-full bg-brand-soft px-4 py-1.5 text-sm font-semibold text-brand">Olá, <%= customer.name.split(' ')[0] %>! 👋</p><% } %>
       <h1 class="text-gradient mt-5 text-4xl font-extrabold tracking-tight sm:text-6xl"><%= settings.name %></h1>
@@ -19,7 +19,7 @@
       </div>
 
       <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-        <a href="<%= base %>/agendar" class="btn-primary hidden px-8 py-3.5 text-base sm:inline-flex">Agendar meu horário</a>
+        <a href="/agendar" class="btn-primary hidden px-8 py-3.5 text-base sm:inline-flex">Agendar meu horário</a>
         <% if (!customer) { %><button type="button" data-open-cadastro class="btn-outline px-8 py-3.5 text-base">Cadastrar / Entrar</button><% } %>
       </div>
     </div>
@@ -43,7 +43,7 @@
     <p class="mt-1 text-slate-500">Toque em um serviço para já agendar.</p>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <% services.forEach(s => { %>
-        <a href="<%= base %>/agendar?servico=<%= s.id %>" class="card group flex items-center gap-4 !p-4 transition hover:-translate-y-0.5 hover:ring-brand/60">
+        <a href="/agendar?servico=<%= s.id %>" class="card group flex items-center gap-4 !p-4 transition hover:-translate-y-0.5 hover:ring-brand/60">
           <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-lg font-bold text-white shadow-md shadow-brand/30"><%= s.name.charAt(0).toUpperCase() %></span>
           <div class="min-w-0 flex-1">
             <p class="truncate font-semibold"><%= s.name %></p>
@@ -66,7 +66,7 @@
             <p class="mt-1 text-slate-500">Olá, <%= customer.name.split(' ')[0] %>! Seu nome e telefone já vão preenchidos quando você agendar.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <a href="<%= base %>/agendar" class="btn-primary">Agendar horário</a>
+            <a href="/agendar" class="btn-primary">Agendar horário</a>
             <button type="button" id="logout" class="py-2 text-sm text-slate-500 underline">Não sou eu / sair</button>
           </div>
         </div>
@@ -84,7 +84,7 @@
 </main>
 
 <div class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-surface/80 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
-  <a href="<%= base %>/agendar" class="btn-primary w-full py-3.5 text-base">Agendar horário</a>
+  <a href="/agendar" class="btn-primary w-full py-3.5 text-base">Agendar horário</a>
 </div>
 
 <% if (!customer) { %>
@@ -120,7 +120,7 @@
       <span class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-gradient text-3xl text-white shadow-lg shadow-brand/30">✓</span>
       <h2 id="cm-done-title" class="text-2xl font-extrabold">Tudo certo!</h2>
       <p class="mt-1 text-sm text-slate-500">Seu nome e telefone já vão preenchidos quando você agendar.</p>
-      <a href="<%= base %>/agendar" class="btn-primary mt-6 w-full py-3.5 text-base">Agendar horário</a>
+      <a href="/agendar" class="btn-primary mt-6 w-full py-3.5 text-base">Agendar horário</a>
       <button type="button" id="cm-later" class="mt-2 w-full py-2 text-sm text-slate-500">Agora não</button>
     </div>
   </div>
@@ -130,7 +130,6 @@
 <script src="/js/mask.js"></script>
 <script>
 (function () {
-  var BASE = <%- JSON.stringify(base) %>;
   var modal = document.getElementById('cadastro-modal');
   var registered = false;
   if (modal) {
@@ -148,7 +147,7 @@
       var btn = document.getElementById('c-submit'), err = document.getElementById('c-error');
       var fail = function (msg) { err.textContent = msg; err.classList.remove('hidden'); btn.disabled = false; };
       btn.disabled = true; err.classList.add('hidden');
-      fetch(BASE + '/api/cadastro', {
+      fetch('/api/cadastro', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: document.getElementById('c-name').value, phone: document.getElementById('c-phone').value }),
       }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
@@ -162,7 +161,7 @@
   }
   var out = document.getElementById('logout');
   if (out) out.addEventListener('click', function () {
-    fetch(BASE + '/api/cadastro/sair', { method: 'POST' }).then(function () { location.reload(); });
+    fetch('/api/cadastro/sair', { method: 'POST' }).then(function () { location.reload(); });
   });
 })();
 </script>
