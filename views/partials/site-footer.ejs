@@ -8,7 +8,7 @@
     <!-- Marca -->
     <div>
       <div class="flex items-center gap-3">
-        <img src="<%= settings.logo %>" alt="" class="h-10 w-10 rounded-full bg-surface object-cover ring-2 ring-brand/40">
+        <img src="<%= asset(settings.logo) %>" alt="" class="h-10 w-10 rounded-full bg-surface object-cover ring-2 ring-brand/40">
         <p class="text-base font-extrabold"><%= settings.name %></p>
       </div>
       <% if (settings.tagline) { %><p class="mt-3 text-slate-500"><%= settings.tagline %></p><% } %>
@@ -47,7 +47,7 @@
   <div class="border-t border-slate-200/70">
     <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 text-xs text-slate-400 <%= lift ? 'pr-20 sm:pr-4' : '' %>">
       <span>© <%= new Date().getFullYear() %> <%= settings.name %></span>
-      <a href="/admin" class="py-1 hover:text-brand">Área do salão</a>
+      <a href="<%= base %>/admin" class="py-1 hover:text-brand">Área do salão</a>
     </div>
   </div>
 </footer>

@@ -59,6 +59,7 @@
 <script src="/js/mask.js"></script>
 <script>
 (() => {
+  const BASE = <%- JSON.stringify(base) %>;
   const SERVICES = <%- JSON.stringify(services).replace(/</g, '\\u003c') %>;
   const PROS = <%- JSON.stringify(professionals).replace(/</g, '\\u003c') %>;
   const PRESET = <%- JSON.stringify(preset).replace(/</g, '\\u003c') %>;
@@ -121,7 +122,7 @@
     if (!state.date) { $('slots-msg').textContent = 'Escolha uma data.'; return; }
     $('slots-msg').textContent = 'Buscando horários...';
     const q = new URLSearchParams({ data: state.date, servico: state.service.id, profissional: state.pro });
-    const { slots, reason } = await (await fetch('/api/horarios?' + q)).json();
+    const { slots, reason } = await (await fetch(BASE + '/api/horarios?' + q)).json();
     $('slots-msg').textContent = slots.length ? 'Toque no horário desejado:' : (reason ? reason + '. ' : '') + 'Tente outro dia.';
     $('slots').innerHTML = slots.map((s) => `<button type="button" class="choice !p-0 h-12 text-center font-semibold" data-time="${s.time}">${s.time}</button>`).join('');
     if (slots.length) { progress(3); }
@@ -151,7 +152,7 @@
   $('step-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = $('submit'); btn.disabled = true; $('error').classList.add('hidden');
-    const res = await fetch('/api/agendar', {
+    const res = await fetch(BASE + '/api/agendar', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         serviceId: state.service.id, professionalId: state.pro, date: state.date, time: state.time,

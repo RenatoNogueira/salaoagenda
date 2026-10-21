@@ -49,9 +49,9 @@
 
     <p class="mt-6 text-xs text-slate-400">Guarde esta página para consultar ou cancelar seu horário.</p>
     <div class="mt-4 flex justify-center gap-3">
-      <a href="/" class="btn-ghost">Início</a>
+      <a href="<%= base %>/" class="btn-ghost">Início</a>
       <% if (appt.status === 'pendente' || appt.status === 'confirmado') { %>
-        <form method="post" action="/confirmacao/<%= appt.token %>/cancelar" data-title="Cancelar seu horário?" data-confirm="Seu horário de <%= dateBR(appt.date) %> às <%= appt.time %> será cancelado e liberado para outras clientes." data-ok="Sim, cancelar" data-tone="danger">
+        <form method="post" action="<%= base %>/confirmacao/<%= appt.token %>/cancelar" data-title="Cancelar seu horário?" data-confirm="Seu horário de <%= dateBR(appt.date) %> às <%= appt.time %> será cancelado e liberado para outras clientes." data-ok="Sim, cancelar" data-tone="danger">
           <button class="btn-outline">Cancelar horário</button>
         </form>
       <% } %>

@@ -1,16 +1,16 @@
 <header class="sticky top-0 z-30 border-b border-slate-200/60 bg-surface/70 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
   <div class="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-2.5">
-    <a href="/" class="flex min-w-0 items-center gap-3">
-      <img src="<%= settings.logo %>" alt="Logo <%= settings.name %>" class="h-10 w-10 shrink-0 rounded-full bg-surface object-cover ring-2 ring-brand/40">
+    <a href="<%= base %>/" class="flex min-w-0 items-center gap-3">
+      <img src="<%= asset(settings.logo) %>" alt="Logo <%= settings.name %>" class="h-10 w-10 shrink-0 rounded-full bg-surface object-cover ring-2 ring-brand/40">
       <span class="truncate text-lg font-extrabold tracking-tight"><%= settings.name %></span>
     </a>
 
     <!-- Computador -->
     <nav class="hidden items-center gap-1 text-sm font-medium sm:flex" aria-label="Menu">
-      <a href="/#servicos" class="rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-100">Serviços</a>
-      <a href="/#equipe" class="rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-100">Equipe</a>
+      <a href="<%= base %>/#servicos" class="rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-100">Serviços</a>
+      <a href="<%= base %>/#equipe" class="rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-100">Equipe</a>
       <%- include('theme-toggle') %>
-      <a href="/agendar" class="btn-primary ml-1">Agendar</a>
+      <a href="<%= base %>/agendar" class="btn-primary ml-1">Agendar</a>
     </nav>
 
     <!-- Celular -->
@@ -35,14 +35,14 @@
       </button>
     </div>
     <ul class="space-y-1 text-base font-medium">
-      <li><a href="/" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Início</a></li>
-      <li><a href="/#servicos" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Serviços</a></li>
-      <li><a href="/#equipe" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Equipe</a></li>
+      <li><a href="<%= base %>/" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Início</a></li>
+      <li><a href="<%= base %>/#servicos" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Serviços</a></li>
+      <li><a href="<%= base %>/#equipe" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Equipe</a></li>
       <% if (settings.phone) { %><li><a href="tel:<%= settings.phone.replace(/[^\d+]/g, '') %>" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">Ligar: <%= fmtPhone(settings.phone) %></a></li><% } %>
       <% if (waNumber) { %><li><a href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener" class="flex min-h-[48px] items-center rounded-xl px-3 hover:bg-slate-100">WhatsApp</a></li><% } %>
-      <li><a href="/admin" class="flex min-h-[48px] items-center rounded-xl px-3 text-slate-500 hover:bg-slate-100">Área do salão</a></li>
+      <li><a href="<%= base %>/admin" class="flex min-h-[48px] items-center rounded-xl px-3 text-slate-500 hover:bg-slate-100">Área do salão</a></li>
     </ul>
-    <a href="/agendar" class="btn-primary mt-3 w-full py-3.5 text-base">Agendar horário</a>
+    <a href="<%= base %>/agendar" class="btn-primary mt-3 w-full py-3.5 text-base">Agendar horário</a>
   </div>
 </div>
 <script>

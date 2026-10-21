@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="<%= settings.name %>">
   <title><%= title %> · <%= settings.name %></title>
-  <link rel="icon" href="<%= settings.logo %>">
-  <link rel="apple-touch-icon" href="<%= settings.logo %>">
-  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="<%= asset(settings.logo) %>">
+  <link rel="apple-touch-icon" href="<%= asset(settings.logo) %>">
+  <% if (!isPlatform) { %><link rel="manifest" href="<%= base %>/manifest.webmanifest"><% } %>
   <script>
     // Tema padrão vem do painel; a escolha da pessoa (botão sol/lua) tem prioridade.
     (function () {

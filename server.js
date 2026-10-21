@@ -12,7 +12,6 @@ const mailer = require('./lib/mailer');
 const av = require('./lib/availability');
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -20,7 +19,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('trust proxy', 1); // atrás do proxy da Vercel: req.protocol/req.ip corretos
 app.disable('x-powered-by');
 
-// Logos enviadas (modo local) são servidas em uma "caixa de areia": um SVG enviado não consegue rodar scripts
+// Logos enviadas no formato antigo (/uploads) são servidas em uma "caixa de areia": um SVG enviado não consegue rodar scripts
 app.use('/uploads', (req, res, next) => {
   res.set({ 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'X-Content-Type-Options': 'nosniff' });
   next();
@@ -33,9 +32,8 @@ const plainPage = (title, text) =>
 app.use((req, res, next) => (db.configError ? res.status(503).type('html').send(plainPage('Configuração pendente', db.configError)) : next()));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(db.middleware); // depois dos parsers de corpo: carrega/grava os dados de cada pedido
 
-// Arquivos enviados ficam em memória e são gravados por db.storeLogo (disco local ou banco de dados)
+// Arquivos enviados ficam em memória e são gravados por db (disco local ou Blob)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
@@ -95,11 +93,152 @@ const readCookie = (req, name) => {
   return m ? decodeURIComponent(m.slice(name.length + 1)) : '';
 };
 
-app.use((req, res, next) => {
-  const d = db.get();
+const safeEqual = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
+const hashPassword = (pw, salt) => crypto.scryptSync(pw, salt, 32);
+const clean = (s, max = 80) => String(s || '').trim().slice(0, max);
+
+// ----- cookies: cada salão tem os seus (nome e caminho próprios), então um salão nunca enxerga a sessão de outro -----
+const customerCookie = (slug) => `cli_${slug}`;
+const adminCookie = (slug) => `adm_${slug}`;
+const ADMIN_TTL = 8 * 60 * 60 * 1000;
+const FALLBACK_SECRET = crypto.randomBytes(24).toString('hex'); // só vale no modo local sem SESSION_SECRET
+
+// O valor do cookie do painel é "validade.assinatura". A assinatura usa SESSION_SECRET + o slug do salão + o hash da
+// senha atual dele: trocar/redefinir a senha encerra as sessões, e um cookie de um salão não vale em outro.
+const signSession = (slug, adminHash, exp) => {
+  const secret = process.env.SESSION_SECRET || process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID || FALLBACK_SECRET;
+  return crypto.createHmac('sha256', `${secret}:${slug}:${adminHash || ''}`).update(String(exp)).digest('hex');
+};
+function issueAdminCookie(req, res, slug, adminHash) {
+  const exp = Date.now() + ADMIN_TTL;
+  res.cookie(adminCookie(slug), `${exp}.${signSession(slug, adminHash, exp)}`, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: ADMIN_TTL, path: `/${slug}` });
+}
+const loginAdmin = (req, res) => issueAdminCookie(req, res, req.params.slug, (db.get().admin || {}).hash);
+const logoutAdmin = (req, res) => res.clearCookie(adminCookie(req.params.slug), { path: `/${req.params.slug}` });
+function isAdmin(req) {
+  const slug = req.params.slug;
+  const [exp, sig] = readCookie(req, adminCookie(slug)).split('.');
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  const expected = signSession(slug, (db.get().admin || {}).hash, exp);
+  return sig.length === expected.length && safeEqual(Buffer.from(sig), Buffer.from(expected));
+}
+const requireAdmin = (req, res, next) => (isAdmin(req) ? next() : res.redirect('/admin/login'));
+
+function verifyPassword(pw) {
+  const saved = db.get().admin;
+  return Boolean(saved) && safeEqual(hashPassword(pw, saved.salt), Buffer.from(saved.hash, 'hex'));
+}
+
+// =====================================================================================================
+// PLATAFORMA: página inicial e cadastro de novos salões (fora de qualquer salão)
+// =====================================================================================================
+const PLATFORM = {
+  name: process.env.PLATFORM_NAME || 'Agenda de Salões',
+  tagline: 'Site de agendamento e painel de gestão para o seu salão',
+  logo: '/img/logo-default.svg',
+  color: '#be185d',
+  accent: '#f97316',
+  defaultTheme: 'dark',
+  radius: 'moderno',
+};
+const RESERVED_SLUGS = new Set([
+  'admin', 'api', 'criar', 'entrar', 'login', 'cadastro', 'plataforma', 'agendar', 'media', 'uploads', 'css', 'js', 'img',
+  'static', 'assets', 'public', 'favicon', 'robots', 'sitemap', 'healthz', 'health', 'www', 'app', 'mail', 'ftp', 'suporte',
+  'ajuda', 'termos', 'privacidade', 'blog', 'salao', 'salaoagenda', 'tenants', 'null', 'undefined',
+]);
+
+function platformLocals(req, res, next) {
+  res.locals.isPlatform = true;
+  res.locals.base = '';
+  res.locals.slug = '';
+  res.locals.asset = (u) => u;
+  res.locals.settings = PLATFORM;
+  res.locals.theme = Theme.build(PLATFORM);
   res.locals.cssVersion = cssVersion();
-  // cliente que já se cadastrou neste aparelho (cookie com token aleatório)
-  const token = readCookie(req, 'cliente');
+  res.locals.brl = brl;
+  res.locals.signupCodeRequired = Boolean(process.env.PLATFORM_SIGNUP_CODE);
+  next();
+}
+
+app.get('/healthz', (req, res) => res.type('text').send('ok'));
+
+app.get('/', platformLocals, (req, res) => res.render('platform/home', { title: 'Agendamento online para salões' }));
+
+app.get('/criar', platformLocals, (req, res) => res.render('platform/criar', { title: 'Criar meu salão', error: null, form: {} }));
+
+const signupAttempts = new Map(); // ip -> horários dos últimos cadastros (limite: 5 por hora)
+
+app.post('/criar', platformLocals, upload.single('logo'), wrap(async (req, res) => {
+  const b = req.body;
+  const form = { name: clean(b.name), slug: clean(b.slug, 30).toLowerCase(), document: String(b.document || ''), email: clean(b.email, 120).toLowerCase() };
+  const fail = (error, status = 400) => res.status(status).render('platform/criar', { title: 'Criar meu salão', error, form });
+
+  const now = Date.now();
+  const recent = (signupAttempts.get(req.ip) || []).filter((t) => now - t < 3600 * 1000);
+  if (recent.length >= 5) return fail('Muitos cadastros deste endereço. Tente novamente mais tarde.', 429);
+
+  const doc = documentLib.check(b.document);
+  if (process.env.PLATFORM_SIGNUP_CODE && String(b.code || '') !== process.env.PLATFORM_SIGNUP_CODE) return fail('Código de convite inválido.');
+  if (form.name.length < 2) return fail('Informe o nome do salão.');
+  if (!db.SLUG_RE.test(form.slug)) return fail('O endereço deve ter de 2 a 30 caracteres: letras minúsculas, números e hífen (sem espaços nem acentos).');
+  if (RESERVED_SLUGS.has(form.slug)) return fail('Esse endereço é reservado. Escolha outro.');
+  if (!doc.ok) return fail(`${doc.kind || 'CPF ou CNPJ'} inválido. Confira os números digitados.`);
+  if (!emailOk(form.email)) return fail('Informe um e-mail válido: ele será usado para recuperar a senha.');
+  if (String(b.password || '').length < 6) return fail('A senha precisa ter pelo menos 6 caracteres.');
+  if (b.password !== b.password2) return fail('As senhas não conferem.');
+  signupAttempts.set(req.ip, [...recent, now]);
+
+  // O documento do salão nasce completo: dados iniciais + dono + senha. A criação é atômica: se o endereço já
+  // existir, nada é gravado e ninguém sobrescreve o salão de outra pessoa.
+  const salon = db.defaults();
+  salon.settings.name = form.name;
+  const logoFile = req.file ? db.logoFileName(req.file.originalname) : null;
+  if (logoFile) salon.settings.logo = `/media/${logoFile}`;
+  salon.owner = { document: doc.digits, kind: doc.kind, email: form.email, createdAt: new Date().toISOString() };
+  const salt = crypto.randomBytes(16).toString('hex');
+  salon.admin = { salt, hash: hashPassword(String(b.password), salt).toString('hex') };
+  try {
+    await db.createTenant(form.slug, salon);
+  } catch (err) {
+    if (err.code === 'TENANT_EXISTS') return fail('Esse endereço já está em uso. Escolha outro.', 409);
+    throw err;
+  }
+  if (logoFile) {
+    try {
+      await db.saveLogoFile(form.slug, logoFile, req.file.buffer);
+    } catch (err) {
+      console.error('Salão criado, mas a logo não foi salva:', err.message); // o painel permite enviar a logo de novo
+    }
+  }
+  issueAdminCookie(req, res, form.slug, salon.admin.hash);
+  res.redirect(`/${form.slug}/admin`);
+}));
+
+// =====================================================================================================
+// SALÃO: tudo que fica em /<slug>/...
+// =====================================================================================================
+const tenant = express.Router({ mergeParams: true });
+// db.middleware carrega o documento DO SALÃO da URL; salão inexistente cai no tratamento de erro (404)
+app.use('/:slug([a-z0-9][a-z0-9-]{1,29})', db.middleware, tenant);
+
+tenant.use((req, res, next) => {
+  const d = db.get();
+  const base = req.baseUrl; // "/<slug>"
+
+  // redirecionamentos internos ganham o prefixo do salão (ex.: res.redirect('/admin') -> /<slug>/admin)
+  const redirect = res.redirect.bind(res);
+  res.redirect = (a, b) => {
+    const [status, url] = typeof a === 'number' ? [a, b] : [302, a];
+    return redirect(status, typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') ? base + url : url);
+  };
+
+  res.locals.isPlatform = false;
+  res.locals.base = base;
+  res.locals.slug = req.params.slug;
+  res.locals.asset = (u) => (u && u.startsWith('/media/') ? base + u : u); // logos enviadas vivem em /<slug>/media
+  res.locals.cssVersion = cssVersion();
+  // cliente que já se cadastrou neste aparelho (cookie com token aleatório, um por salão)
+  const token = readCookie(req, customerCookie(req.params.slug));
   res.locals.customer = token ? d.customers.find((c) => c.token === token) || null : null;
   res.locals.settings = d.settings;
   res.locals.theme = Theme.build(d.settings);
@@ -115,62 +254,29 @@ app.use((req, res, next) => {
   next();
 });
 
-const safeEqual = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
-const hashPassword = (pw, salt) => crypto.scryptSync(pw, salt, 32);
-
-function verifyPassword(pw) {
-  const saved = db.get().admin;
-  if (saved) return safeEqual(hashPassword(pw, saved.salt), Buffer.from(saved.hash, 'hex'));
-  return safeEqual(Buffer.from(pw), Buffer.from(ADMIN_PASSWORD));
-}
-
-const clean = (s, max = 80) => String(s || '').trim().slice(0, max);
-
-// ----- sessão do painel: cookie assinado (sem estado no servidor, funciona em serverless) -----
-// O valor é "validade.assinatura". A assinatura usa SESSION_SECRET + o hash da senha atual,
-// então trocar/redefinir a senha encerra todas as sessões abertas.
-const ADMIN_COOKIE = 'adm';
-const ADMIN_TTL = 8 * 60 * 60 * 1000;
-const FALLBACK_SECRET = crypto.randomBytes(24).toString('hex'); // só vale no modo local sem SESSION_SECRET
-const signSession = (exp) => {
-  const key = (process.env.SESSION_SECRET || process.env.BLOB_READ_WRITE_TOKEN || FALLBACK_SECRET) + ':' + ((db.get().admin || {}).hash || '');
-  return crypto.createHmac('sha256', key).update(String(exp)).digest('hex');
-};
-function loginAdmin(req, res) {
-  const exp = Date.now() + ADMIN_TTL;
-  res.cookie(ADMIN_COOKIE, `${exp}.${signSession(exp)}`, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: ADMIN_TTL, path: '/' });
-}
-const logoutAdmin = (res) => res.clearCookie(ADMIN_COOKIE, { path: '/' });
-function isAdmin(req) {
-  const [exp, sig] = readCookie(req, ADMIN_COOKIE).split('.');
-  if (!exp || !sig || Number(exp) < Date.now()) return false;
-  const expected = signSession(exp);
-  return sig.length === expected.length && safeEqual(Buffer.from(sig), Buffer.from(expected));
-}
-const requireAdmin = (req, res, next) => (isAdmin(req) ? next() : res.redirect('/admin/login'));
-
 // Permite "Adicionar à tela inicial" no celular, com o nome e a logo do salão
-app.get('/manifest.webmanifest', (req, res) => {
+tenant.get('/manifest.webmanifest', (req, res) => {
   const s = db.get().settings;
   const types = { '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
   res.type('application/manifest+json').json({
     name: s.name,
     short_name: s.name.slice(0, 12),
-    start_url: '/',
+    start_url: req.baseUrl + '/',
+    scope: req.baseUrl + '/',
     display: 'standalone',
     background_color: '#0b1220',
     theme_color: s.color,
-    icons: [{ src: s.logo, sizes: 'any', type: types[path.extname(s.logo).toLowerCase()] || 'image/png', purpose: 'any' }],
+    icons: [{ src: res.locals.asset(s.logo), sizes: 'any', type: types[path.extname(s.logo).toLowerCase()] || 'image/png', purpose: 'any' }],
   });
 });
 
 // ---------- público ----------
-app.get('/', (req, res) => {
+tenant.get('/', (req, res) => {
   const d = db.get();
   res.render('index', { services: d.services, professionals: d.professionals, title: d.settings.name, waLift: true });
 });
 
-app.get('/agendar', (req, res) => {
+tenant.get('/agendar', (req, res) => {
   const d = db.get();
   res.render('agendar', {
     title: 'Agendar horário',
@@ -186,7 +292,7 @@ app.get('/agendar', (req, res) => {
   });
 });
 
-app.get('/api/horarios', (req, res) => {
+tenant.get('/api/horarios', (req, res) => {
   const d = db.get();
   const date = String(req.query.data || '');
   const slots = av.getSlots(d, {
@@ -197,7 +303,7 @@ app.get('/api/horarios', (req, res) => {
   res.json({ slots, reason: slots.length ? null : av.closedReason(d, date) });
 });
 
-app.post('/api/agendar', (req, res) => {
+tenant.post('/api/agendar', (req, res) => {
   const d = db.get();
   const b = req.body;
   const serviceId = Number(b.serviceId);
@@ -234,14 +340,14 @@ app.post('/api/agendar', (req, res) => {
   };
   d.appointments.push(appt);
   db.save();
-  res.json({ url: '/confirmacao/' + appt.token });
+  res.json({ url: req.baseUrl + '/confirmacao/' + appt.token });
 });
 
 // Cadastro/entrada da cliente por nome + telefone (sem senha). O telefone identifica a cliente e o
 // primeiro nome precisa conferir; o aparelho fica "lembrado" por um cookie e o agendamento já vem preenchido.
 const firstName = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().split(/\s+/)[0] || '';
 
-app.post('/api/cadastro', (req, res) => {
+tenant.post('/api/cadastro', (req, res) => {
   const d = db.get();
   const name = clean(req.body.name);
   const phone = clean(req.body.phone, 20);
@@ -262,16 +368,16 @@ app.post('/api/cadastro', (req, res) => {
     d.customers.push(c);
   }
   db.save();
-  res.cookie('cliente', c.token, { httpOnly: true, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 365 });
+  res.cookie(customerCookie(req.params.slug), c.token, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 1000 * 60 * 60 * 24 * 365, path: req.baseUrl });
   res.json({ ok: true, returning, name: c.name.split(' ')[0] });
 });
 
-app.post('/api/cadastro/sair', (req, res) => {
-  res.clearCookie('cliente');
+tenant.post('/api/cadastro/sair', (req, res) => {
+  res.clearCookie(customerCookie(req.params.slug), { path: req.baseUrl });
   res.json({ ok: true });
 });
 
-app.get('/confirmacao/:token', (req, res) => {
+tenant.get('/confirmacao/:token', (req, res) => {
   const d = db.get();
   const appt = d.appointments.find((a) => a.token === req.params.token);
   if (!appt) return res.status(404).render('erro', { title: 'Não encontrado', msg: 'Agendamento não encontrado.' });
@@ -284,7 +390,7 @@ app.get('/confirmacao/:token', (req, res) => {
   });
 });
 
-app.post('/confirmacao/:token/cancelar', (req, res) => {
+tenant.post('/confirmacao/:token/cancelar', (req, res) => {
   const appt = db.get().appointments.find((a) => a.token === req.params.token);
   if (appt && appt.status !== 'concluido') {
     appt.status = 'cancelado';
@@ -294,9 +400,6 @@ app.post('/confirmacao/:token/cancelar', (req, res) => {
 });
 
 // ---------- admin ----------
-// Primeiro acesso: enquanto não existir dono cadastrado, tudo em /admin leva ao cadastro do salão.
-const needsSetup = () => !db.get().owner;
-
 async function replaceLogo(s, file, remove) {
   if (file) {
     const old = s.logo;
@@ -308,10 +411,9 @@ async function replaceLogo(s, file, remove) {
   }
 }
 
-// logos guardadas no banco (modo remoto); no modo local elas saem de /uploads
-app.get('/media/:file', wrap(async (req, res) => {
-  const file = req.params.file;
-  const asset = /^[0-9a-f]{24}\.(png|jpe?g|webp|svg)$/.test(file) ? await db.readMedia(file) : null;
+// logos do salão (guardadas em disco local ou no Blob): /<slug>/media/<arquivo>
+tenant.get('/media/:file', wrap(async (req, res) => {
+  const asset = await db.readMedia(req.params.slug, req.params.file);
   if (!asset) return res.status(404).end();
   res.set({
     'Content-Type': asset.mime,
@@ -322,40 +424,7 @@ app.get('/media/:file', wrap(async (req, res) => {
   res.send(asset.data);
 }));
 
-app.get('/admin/cadastro', (req, res) => {
-  if (!needsSetup()) return res.redirect(isAdmin(req) ? '/admin' : '/admin/login');
-  const s = db.get().settings;
-  res.render('admin/cadastro', { title: 'Primeiro acesso', error: null, form: { name: s.name === 'Meu Salão' ? '' : s.name, document: '', email: '' } });
-});
-
-app.post('/admin/cadastro', upload.single('logo'), db.restore, wrap(async (req, res) => {
-  const d = db.get();
-  if (!needsSetup()) return res.redirect('/admin/login');
-  const b = req.body;
-  const name = clean(b.name);
-  const doc = documentLib.check(b.document);
-  const email = clean(b.email, 120).toLowerCase();
-  const fail = (error) => {
-    res.status(400).render('admin/cadastro', { title: 'Primeiro acesso', error, form: { name, document: String(b.document || ''), email } });
-  };
-  if (name.length < 2) return fail('Informe o nome do salão.');
-  if (!doc.ok) return fail(`${doc.kind || 'CPF ou CNPJ'} inválido. Confira os números digitados.`);
-  if (!emailOk(email)) return fail('Informe um e-mail válido: ele será usado para recuperar a senha.');
-  if (String(b.password || '').length < 6) return fail('A senha precisa ter pelo menos 6 caracteres.');
-  if (b.password !== b.password2) return fail('As senhas não conferem.');
-
-  d.settings.name = name;
-  await replaceLogo(d.settings, req.file, false);
-  d.owner = { document: doc.digits, kind: doc.kind, email, createdAt: new Date().toISOString() };
-  const salt = crypto.randomBytes(16).toString('hex');
-  d.admin = { salt, hash: hashPassword(String(b.password), salt).toString('hex') };
-  db.save();
-  loginAdmin(req, res);
-  res.redirect('/admin');
-}));
-
-app.get('/admin/login', (req, res) => {
-  if (needsSetup()) return res.redirect('/admin/cadastro');
+tenant.get('/admin/login', (req, res) => {
   if (isAdmin(req)) return res.redirect('/admin');
   res.render('admin/login', { title: 'Entrar', error: null, notice: req.query.redefinida ? 'Senha alterada! Entre com a nova senha.' : null });
 });
@@ -365,13 +434,11 @@ const emailOk = (s) => s.length <= 120 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s
 const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
 const resetAttempts = new Map(); // ip -> horários dos últimos pedidos (limite: 5 por hora)
 
-app.get('/admin/recuperar', (req, res) => {
-  if (needsSetup()) return res.redirect('/admin/cadastro');
+tenant.get('/admin/recuperar', (req, res) => {
   res.render('admin/recuperar', { title: 'Recuperar senha', sent: false, error: null });
 });
 
-app.post('/admin/recuperar', wrap(async (req, res) => {
-  if (needsSetup()) return res.redirect('/admin/cadastro');
+tenant.post('/admin/recuperar', wrap(async (req, res) => {
   const now = Date.now();
   const recent = (resetAttempts.get(req.ip) || []).filter((t) => now - t < 3600 * 1000);
   if (recent.length >= 5) {
@@ -388,7 +455,7 @@ app.post('/admin/recuperar', wrap(async (req, res) => {
     db.save();
     await db.flush(); // grava já e libera a trava de escrita antes do envio, que é lento
     const base = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
-    const link = `${base}/admin/redefinir/${token}`;
+    const link = `${base}/${req.params.slug}/admin/redefinir/${token}`;
     const name = d.settings.name;
     // O envio é aguardado: em serverless (Vercel) a função é encerrada logo após a resposta
     try {
@@ -412,13 +479,11 @@ const validReset = (token) => {
   return Boolean(r && r.expires > Date.now() && safeEqual(Buffer.from(hashToken(String(token))), Buffer.from(r.hash)));
 };
 
-app.get('/admin/redefinir/:token', (req, res) => {
-  if (needsSetup()) return res.redirect('/admin/cadastro');
+tenant.get('/admin/redefinir/:token', (req, res) => {
   res.render('admin/redefinir', { title: 'Nova senha', valid: validReset(req.params.token), error: null });
 });
 
-app.post('/admin/redefinir/:token', (req, res) => {
-  if (needsSetup()) return res.redirect('/admin/cadastro');
+tenant.post('/admin/redefinir/:token', (req, res) => {
   if (!validReset(req.params.token)) return res.status(400).render('admin/redefinir', { title: 'Nova senha', valid: false, error: null });
   const { password, password2 } = req.body;
   const fail = (error) => res.status(400).render('admin/redefinir', { title: 'Nova senha', valid: true, error });
@@ -432,8 +497,7 @@ app.post('/admin/redefinir/:token', (req, res) => {
   res.redirect('/admin/login?redefinida=1');
 });
 
-app.post('/admin/login', (req, res) => {
-  if (needsSetup()) return res.redirect('/admin/cadastro');
+tenant.post('/admin/login', (req, res) => {
   if (verifyPassword(String(req.body.password || ''))) {
     loginAdmin(req, res);
     return res.redirect('/admin');
@@ -441,13 +505,12 @@ app.post('/admin/login', (req, res) => {
   res.status(401).render('admin/login', { title: 'Entrar', error: 'Senha incorreta.', notice: null });
 });
 
-app.post('/admin/logout', (req, res) => {
-  logoutAdmin(res);
+tenant.post('/admin/logout', (req, res) => {
+  logoutAdmin(req, res);
   res.redirect('/admin/login');
 });
 
-app.use('/admin', (req, res, next) => (needsSetup() ? res.redirect('/admin/cadastro') : next()));
-app.use('/admin', requireAdmin);
+tenant.use('/admin', requireAdmin);
 
 const priceOf = (d, a) => (a.price != null ? a.price : (d.services.find((s) => s.id === a.serviceId) || {}).price || 0);
 const withRefs = (d, a) => ({
@@ -458,7 +521,7 @@ const withRefs = (d, a) => ({
 });
 const byWhen = (a, b) => a.date.localeCompare(b.date) || a.start - b.start;
 
-app.get('/admin', (req, res) => {
+tenant.get('/admin', (req, res) => {
   const d = db.get();
   const today = av.todayStr();
   const view = req.query.view === 'confirmar' ? 'confirmar' : 'dia';
@@ -506,7 +569,7 @@ app.get('/admin', (req, res) => {
 
 const STATUSES = ['pendente', 'confirmado', 'concluido', 'cancelado'];
 
-app.post('/admin/agendamentos/:id/status', (req, res) => {
+tenant.post('/admin/agendamentos/:id/status', (req, res) => {
   const d = db.get();
   const appt = d.appointments.find((a) => a.id === Number(req.params.id));
   if (appt && STATUSES.includes(req.body.status)) {
@@ -522,7 +585,7 @@ app.post('/admin/agendamentos/:id/status', (req, res) => {
 });
 
 // pagamento: sinal (percentual configurado), à vista/restante ou estorno do último lançamento
-app.post('/admin/agendamentos/:id/pagamento', (req, res) => {
+tenant.post('/admin/agendamentos/:id/pagamento', (req, res) => {
   const d = db.get();
   const appt = d.appointments.find((a) => a.id === Number(req.params.id));
   if (!appt) return res.status(404).end();
@@ -537,7 +600,7 @@ app.post('/admin/agendamentos/:id/pagamento', (req, res) => {
 });
 
 // confirma de uma vez todos os pendentes de um dia (data=YYYY-MM-DD) ou de toda a agenda futura (data=todos)
-app.post('/admin/agendamentos/confirmar-todos', (req, res) => {
+tenant.post('/admin/agendamentos/confirmar-todos', (req, res) => {
   const d = db.get();
   const today = av.todayStr();
   const scope = String(req.body.data || '');
@@ -553,11 +616,11 @@ app.post('/admin/agendamentos/confirmar-todos', (req, res) => {
 });
 
 // serviços
-app.get('/admin/servicos', (req, res) => {
+tenant.get('/admin/servicos', (req, res) => {
   res.render('admin/servicos', { title: 'Serviços', section: 'servicos', services: db.get().services });
 });
 
-app.post('/admin/servicos', (req, res) => {
+tenant.post('/admin/servicos', (req, res) => {
   const d = db.get();
   const data = {
     name: clean(req.body.name),
@@ -572,7 +635,7 @@ app.post('/admin/servicos', (req, res) => {
   res.redirect('/admin/servicos');
 });
 
-app.post('/admin/servicos/:id/excluir', (req, res) => {
+tenant.post('/admin/servicos/:id/excluir', (req, res) => {
   const d = db.get();
   d.services = d.services.filter((s) => s.id !== Number(req.params.id));
   db.save();
@@ -580,11 +643,11 @@ app.post('/admin/servicos/:id/excluir', (req, res) => {
 });
 
 // profissionais
-app.get('/admin/profissionais', (req, res) => {
+tenant.get('/admin/profissionais', (req, res) => {
   res.render('admin/profissionais', { title: 'Profissionais', section: 'profissionais', professionals: db.get().professionals });
 });
 
-app.post('/admin/profissionais', (req, res) => {
+tenant.post('/admin/profissionais', (req, res) => {
   const d = db.get();
   const data = { name: clean(req.body.name) };
   if (!data.name) return res.redirect('/admin/profissionais');
@@ -595,7 +658,7 @@ app.post('/admin/profissionais', (req, res) => {
   res.redirect('/admin/profissionais');
 });
 
-app.post('/admin/profissionais/:id/excluir', (req, res) => {
+tenant.post('/admin/profissionais/:id/excluir', (req, res) => {
   const d = db.get();
   d.professionals = d.professionals.filter((p) => p.id !== Number(req.params.id));
   db.save();
@@ -603,7 +666,7 @@ app.post('/admin/profissionais/:id/excluir', (req, res) => {
 });
 
 // personalização (nome, logo, cor, horários)
-app.get('/admin/configuracoes', (req, res) => {
+tenant.get('/admin/configuracoes', (req, res) => {
   const owner = db.get().owner;
   res.render('admin/configuracoes', {
     title: 'Personalização',
@@ -618,7 +681,7 @@ app.get('/admin/configuracoes', (req, res) => {
   });
 });
 
-app.post('/admin/configuracoes', upload.single('logo'), db.restore, wrap(async (req, res) => {
+tenant.post('/admin/configuracoes', upload.single('logo'), db.restore, wrap(async (req, res) => {
   const s = db.get().settings;
   const b = req.body;
   s.name = clean(b.name) || s.name;
@@ -669,12 +732,12 @@ app.post('/admin/configuracoes', upload.single('logo'), db.restore, wrap(async (
 }));
 
 // bloqueios (feriados, folgas, viagens)
-app.get('/admin/bloqueios', (req, res) => {
+tenant.get('/admin/bloqueios', (req, res) => {
   const blocks = [...db.get().blocks].sort((a, b) => a.date.localeCompare(b.date));
   res.render('admin/bloqueios', { title: 'Bloqueios', section: 'bloqueios', blocks, today: av.todayStr() });
 });
 
-app.post('/admin/bloqueios', (req, res) => {
+tenant.post('/admin/bloqueios', (req, res) => {
   const d = db.get();
   const from = String(req.body.from || '');
   const to = String(req.body.to || from);
@@ -688,7 +751,7 @@ app.post('/admin/bloqueios', (req, res) => {
   res.redirect('/admin/bloqueios');
 });
 
-app.post('/admin/bloqueios/:id/excluir', (req, res) => {
+tenant.post('/admin/bloqueios/:id/excluir', (req, res) => {
   const d = db.get();
   d.blocks = d.blocks.filter((b) => b.id !== Number(req.params.id));
   db.save();
@@ -696,7 +759,7 @@ app.post('/admin/bloqueios/:id/excluir', (req, res) => {
 });
 
 // relatórios
-app.get('/admin/relatorios', (req, res) => {
+tenant.get('/admin/relatorios', (req, res) => {
   const d = db.get();
   const month = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : av.todayStr().slice(0, 7);
   const list = d.appointments.filter((a) => a.date.startsWith(month));
@@ -735,7 +798,7 @@ app.get('/admin/relatorios', (req, res) => {
 });
 
 // clientes (ativas, em risco, inativas, novas)
-app.get('/admin/clientes', (req, res) => {
+tenant.get('/admin/clientes', (req, res) => {
   const d = db.get();
   const q = clean(req.query.q, 40).toLowerCase();
   const status = ['ativa', 'risco', 'inativa', 'nova'].includes(req.query.status) ? req.query.status : 'todas';
@@ -803,7 +866,7 @@ function incomeEntries(d, from, to) {
   return rows.sort((x, y) => y.at.localeCompare(x.at));
 }
 
-app.get('/admin/entradas', (req, res) => {
+tenant.get('/admin/entradas', (req, res) => {
   const d = db.get();
   const { from, to, today } = periodFrom(req);
   const entries = incomeEntries(d, from, to);
@@ -851,7 +914,7 @@ app.get('/admin/entradas', (req, res) => {
   });
 });
 
-app.get('/admin/entradas.csv', (req, res) => {
+tenant.get('/admin/entradas.csv', (req, res) => {
   const { from, to } = periodFrom(req);
   const entries = incomeEntries(db.get(), from, to).sort((a, b) => a.at.localeCompare(b.at));
   const money = (v) => v.toFixed(2).replace('.', ',');
@@ -879,7 +942,7 @@ app.get('/admin/entradas.csv', (req, res) => {
 });
 
 // trocar senha
-app.post('/admin/senha', (req, res) => {
+tenant.post('/admin/senha', (req, res) => {
   const { current, next } = req.body;
   if (!verifyPassword(String(current || '')) || String(next || '').length < 6) {
     return res.redirect('/admin/configuracoes?senha=erro');
@@ -891,17 +954,34 @@ app.post('/admin/senha', (req, res) => {
   res.redirect('/admin/configuracoes?senha=ok');
 });
 
+
+// ---------- fim do roteador do salão ----------
+
+// endereços que não existem em lugar nenhum
+app.use((req, res) => {
+  platformLocals(req, res, () => {});
+  res.status(404).render('platform/mensagem', { title: 'Página não encontrada', msg: 'Não encontramos esta página.' }, (err, html) => {
+    if (err) return res.type('html').send(plainPage('Página não encontrada', 'Não encontramos esta página.'));
+    res.send(html);
+  });
+});
+
 app.use((err, req, res, next) => {
-  console.error(err);
+  if (!(err && err.code === 'TENANT_NOT_FOUND')) console.error(err); // endereço de salão inexistente é esperado: não polui o log
   db.rollback(); // pedido com erro não grava nada pela metade
   if (res.headersSent) return next(err);
-  // Página de erro do sistema; se nem ela puder ser montada (ex.: banco fora do ar), responde texto simples
-  const show = (status, title, msg) =>
-    res.status(status).render('erro', { title, msg }, (renderErr, html) => {
+  // Páginas de erro: dentro de um salão usam o visual dele; fora (ou se o salão nem carregou) usam o da plataforma.
+  // Se nem a página de erro puder ser montada (ex.: armazenamento fora do ar), responde texto simples.
+  const show = (status, title, msg) => {
+    const inTenant = res.locals.isPlatform === false;
+    if (!inTenant) platformLocals(req, res, () => {});
+    res.status(status).render(inTenant ? 'erro' : 'platform/mensagem', { title, msg }, (renderErr, html) => {
       if (renderErr) return res.type('html').send(plainPage(title, msg));
       res.send(html);
     });
+  };
   if (err && err.code === 'LIMIT_FILE_SIZE') return show(413, 'Arquivo grande', 'A imagem pode ter no máximo 2 MB.');
+  if (err && err.code === 'TENANT_NOT_FOUND') return show(404, 'Salão não encontrado', 'Confira o endereço digitado. Se você é dono de um salão, entre pelo endereço que escolheu no cadastro.');
   if (err && err.dbConnection) {
     // o motivo real (sem segredos) ajuda o responsável a corrigir sem precisar abrir os logs
     const detail = `${err.name || 'Erro'}: ${String(err.message || '').replace(/vercel_blob_rw_[\w-]+/g, '[token]')}`.slice(0, 220).replace(/[.\s]+$/, '');
@@ -915,9 +995,12 @@ app.use((err, req, res, next) => {
 // Na Vercel o app é importado por api/index.js (sem listen); localmente, `node server.js` sobe o servidor.
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`Salão rodando em http://localhost:${PORT}`);
-    console.log(`Painel: http://localhost:${PORT}/admin`);
-    console.log(db.isRemote ? 'Dados: arquivo JSON no Vercel Blob' : 'Dados: arquivo data/db.json (local)');
+    console.log(`Plataforma rodando em http://localhost:${PORT}`);
+    console.log(`Criar um salão: http://localhost:${PORT}/criar`);
+    if (!db.isRemote && fs.existsSync(path.join(db.DIR, 'db.json'))) {
+      console.log(`Encontrei ${path.join(path.relative(process.cwd(), db.DIR), 'db.json')} (formato antigo, um salão só). Para usar esse salão, defina MIGRATE_LEGACY_TO=meusalao no .env e abra /meusalao, ou rode: npm run migrate:db -- meusalao`);
+    }
+    console.log(db.isRemote ? 'Dados: um arquivo JSON por salão no Vercel Blob' : `Dados: um arquivo JSON por salão em ${path.relative(process.cwd(), db.DIR) || '.'}/<salao>/db.json (local)`);
   });
 }
 
