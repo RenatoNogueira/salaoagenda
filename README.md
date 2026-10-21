@@ -37,6 +37,8 @@ A Vercel apaga os arquivos entre uma visita e outra, então um `db.json` comum s
 
 Se o Blob ainda não estiver conectado, o site mostra "Configuração pendente" explicando o que falta, em vez de dar erro.
 
+**Private ou Public?** O recomendado é **Private**: só o servidor consegue ler o arquivo. Se o seu store foi criado como **Public**, o sistema percebe sozinho (o Blob responde `403` ao acesso privado) e passa a usar o modo público, guardando o arquivo de dados em um caminho com um trecho derivado do token, difícil de adivinhar. Funciona, mas qualquer pessoa que souber a URL exata consegue ler o arquivo (ele contém telefones das clientes e o hash da senha). Por isso, se puder, crie um store **Private** (Storage → Create → Blob → Private), conecte ao projeto, apague o antigo e faça um Redeploy. Para forçar um modo, use a variável `BLOB_ACCESS=private` ou `BLOB_ACCESS=public`.
+
 ### Levar os dados que já existem no seu computador
 
 Se você já usou o sistema localmente e quer manter agendamentos, serviços e clientes:
