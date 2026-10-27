@@ -11,9 +11,10 @@
   input, select, textarea { font-size: 1rem; }
   body {
     background-image:
-      radial-gradient(50rem 28rem at 85% -8%, rgb(var(--accent) / 0.10), transparent 70%),
-      radial-gradient(48rem 30rem at 5% -10%, rgb(var(--brand) / 0.12), transparent 70%);
+      radial-gradient(50rem 28rem at 85% -8%, rgb(var(--accent) / 0.16), transparent 70%),
+      radial-gradient(48rem 30rem at 5% -10%, rgb(var(--brand) / 0.18), transparent 70%);
     background-repeat: no-repeat;
+    background-attachment: fixed;
   }
   :root {
     --radius: 16px;
@@ -59,17 +60,18 @@
   .btn-sm { @apply min-h-[40px] px-3 py-1.5 text-xs; }
 
   .field {
-    @apply min-h-[44px] w-full border border-slate-300 bg-surface px-3.5 py-2 text-base text-slate-800 shadow-sm transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
+    @apply min-h-[44px] w-full border border-slate-300 bg-surface/70 px-3.5 py-2 text-base text-slate-800 shadow-sm transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
     border-radius: calc(var(--radius) * 0.7);
   }
   .label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
 
   .card {
-    @apply bg-surface p-4 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.12)] ring-1 ring-slate-200/80 sm:p-6;
+    @apply bg-surface/70 p-4 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.12)] ring-1 ring-slate-200/70 backdrop-blur-md backdrop-saturate-150 sm:p-6;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 8px 30px -12px rgb(0 0 0 / 0.14);
     border-radius: var(--radius);
   }
   .choice {
-    @apply cursor-pointer border-2 border-slate-200 bg-surface p-4 text-left transition active:scale-[0.98] hover:border-brand/60;
+    @apply cursor-pointer border-2 border-slate-200/80 bg-surface/60 p-4 backdrop-blur-sm text-left transition active:scale-[0.98] hover:border-brand/60;
     border-radius: calc(var(--radius) * 0.8);
   }
   .choice-active { @apply border-brand bg-brand-soft shadow-[0_0_0_4px_rgb(var(--brand)/0.15)]; }
@@ -85,11 +87,11 @@
     @apply mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white;
     background-image: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
   }
-  .glass { @apply bg-surface/75 backdrop-blur-xl; }
+  .glass { @apply bg-surface/65 backdrop-blur-xl backdrop-saturate-150; }
 
   /* Janelas modais (<dialog>): alertas de confirmação e cadastro */
   dialog.modal {
-    @apply m-auto w-[calc(100%-2rem)] max-w-md border-0 bg-surface p-0 text-slate-800 shadow-2xl;
+    @apply m-auto w-[calc(100%-2rem)] max-w-md border-0 bg-surface/85 p-0 text-slate-800 shadow-2xl backdrop-blur-xl backdrop-saturate-150;
     border-radius: calc(var(--radius) * 1.4);
   }
   dialog.modal::backdrop { background: rgb(2 6 23 / 0.6); backdrop-filter: blur(4px); }
