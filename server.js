@@ -105,6 +105,7 @@ app.use((req, res, next) => {
   res.locals.theme = Theme.build(d.settings);
   res.locals.brl = brl;
   res.locals.dateBR = dateBR;
+  res.locals.timeBR = (iso) => av.timeStr(new Date(iso));
   res.locals.fmtPhone = fmtPhone;
   res.locals.daysLabel = daysLabel;
   res.locals.payMethods = payments.METHODS;
@@ -472,7 +473,7 @@ app.get('/admin', (req, res) => {
     upcomingPending.forEach((a) => {
       let g = groups[groups.length - 1];
       if (!g || g.date !== a.date) {
-        g = { date: a.date, weekday: DAYS[new Date(a.date + 'T00:00:00').getDay()], items: [] };
+        g = { date: a.date, weekday: DAYS[av.weekdayOf(a.date)], items: [] };
         groups.push(g);
       }
       g.items.push(withRefs(d, a));
@@ -486,7 +487,7 @@ app.get('/admin', (req, res) => {
     const items = d.appointments.filter((a) => a.date === day && a.status !== 'cancelado');
     return {
       date: day,
-      weekday: DAYS[new Date(day + 'T00:00:00').getDay()].slice(0, 3),
+      weekday: DAYS[av.weekdayOf(day)].slice(0, 3),
       dd: day.slice(8),
       count: items.length,
       pending: items.some((a) => a.status === 'pendente'),
@@ -500,7 +501,7 @@ app.get('/admin', (req, res) => {
     strip,
     prev: av.addDays(date, -1),
     next: av.addDays(date, 1),
-    weekday: DAYS[new Date(date + 'T00:00:00').getDay()],
+    weekday: DAYS[av.weekdayOf(date)],
   });
 });
 
@@ -666,6 +667,19 @@ app.post('/admin/configuracoes', upload.single('logo'), db.restore, wrap(async (
   }
   db.save();
   res.redirect('/admin/configuracoes?ok=1' + (docError ? '&doc=erro' : '') + (emailError ? '&email=erro' : ''));
+}));
+
+// diagnóstico do armazenamento: confere se ler, gravar e ler de volta funcionam de verdade neste ambiente
+app.get('/admin/diagnostico', wrap(async (req, res) => {
+  const now = new Date();
+  const info = [
+    ['Armazenamento', db.isRemote ? 'Vercel Blob (arquivo JSON)' : 'Arquivo local (data/db.json)'],
+    ['Versão publicada', (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || 'não informada (rodando fora da Vercel)'],
+    ['Fuso do salão', `${av.TZ}: agora é ${av.todayStr(now).split('-').reverse().join('/')} ${av.timeStr(now)}`],
+    ['Relógio do servidor (UTC)', now.toISOString().replace('T', ' ').slice(0, 16)],
+  ];
+  const steps = await db.selfTest();
+  res.render('admin/diagnostico', { title: 'Diagnóstico', section: 'config', info, steps });
 }));
 
 // bloqueios (feriados, folgas, viagens)
@@ -862,7 +876,7 @@ app.get('/admin/entradas.csv', (req, res) => {
     const t = new Date(e.at);
     lines.push([
       dateBR(e.day),
-      t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      av.timeStr(t),
       e.client,
       e.phone,
       e.service,

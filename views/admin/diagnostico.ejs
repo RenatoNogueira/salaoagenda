@@ -1,0 +1,42 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+
+<main class="mx-auto max-w-3xl px-4 py-5 sm:py-8">
+  <a href="/admin/configuracoes" class="text-sm text-slate-500 hover:text-brand">← Personalização</a>
+  <h1 class="mt-2 text-2xl font-extrabold">Diagnóstico do armazenamento</h1>
+  <p class="text-slate-500">Testa agora, neste ambiente, se o sistema consegue ler e gravar os dados. O teste só acrescenta um carimbo de data no arquivo de dados.</p>
+
+  <% const allOk = steps.length > 0 && steps.every((s) => s.ok); %>
+  <div class="mt-5 rounded-2xl px-4 py-3 text-sm font-semibold <%= allOk ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' %>" role="status">
+    <%= allOk ? 'Tudo certo: os dados estão sendo lidos e gravados normalmente.' : 'Há um problema no armazenamento. Veja as etapas abaixo e envie esta tela para o suporte.' %>
+  </div>
+
+  <section class="card mt-5">
+    <h2 class="mb-3 font-bold">Etapas do teste</h2>
+    <ol class="space-y-3">
+      <% steps.forEach((s, i) => { %>
+        <li class="flex gap-3">
+          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold <%= s.ok ? 'bg-green-500 text-white' : 'bg-red-500 text-white' %>"><%= s.ok ? '✓' : '!' %></span>
+          <div class="min-w-0">
+            <p class="font-semibold"><%= s.name %> <span class="text-xs font-normal text-slate-400"><%= s.ms %> ms</span></p>
+            <% if (s.detail) { %><p class="break-words text-sm <%= s.ok ? 'text-slate-500' : 'text-red-600 dark:text-red-400' %>"><%= s.detail %></p><% } %>
+          </div>
+        </li>
+      <% }) %>
+      <% if (!steps.length) { %><li class="text-sm text-slate-500">Nenhuma etapa foi executada.</li><% } %>
+    </ol>
+  </section>
+
+  <section class="card mt-5">
+    <h2 class="mb-3 font-bold">Ambiente</h2>
+    <dl class="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[12rem_1fr]">
+      <% info.forEach(([k, v]) => { %>
+        <dt class="text-slate-500"><%= k %></dt><dd class="break-words font-medium"><%= v %></dd>
+      <% }) %>
+    </dl>
+  </section>
+
+  <a href="/admin/diagnostico" class="btn-outline mt-5">Rodar o teste de novo</a>
+</main>
+</body>
+</html>

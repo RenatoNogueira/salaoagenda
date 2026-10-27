@@ -50,6 +50,14 @@ $env:BLOB_READ_WRITE_TOKEN="cole-aqui-o-token"; npm run migrate:db
 
 O script copia `data/db.json` (e a logo enviada) para o Blob. Se o Blob já tiver um salão cadastrado, ele pede `--force` para sobrescrever.
 
+## Os dados não estão salvando?
+
+Abra o painel → **Personalização** → link **Diagnóstico do armazenamento** (ou direto em `/admin/diagnostico`). A tela faz um teste de ponta a ponta no ambiente real: encontra o arquivo, lê, grava com ETag, lê de volta (confere se a versão nova aparece) e confere se uma gravação desatualizada é recusada. Cada etapa mostra ✓ ou o erro exato.
+
+- **Se a leitura devolver a versão antiga logo depois de gravar:** é o cache do CDN de um store **Public**. O sistema já contorna isso sozinho, mas o ideal é um store **Private**.
+- **Se aparecer "Outra alteração foi feita ao mesmo tempo e esta NÃO foi salva":** duas pessoas gravaram no mesmo instante e as 8 tentativas automáticas não bastaram. Basta repetir a ação.
+- **Datas e horários** seguem o fuso do salão (`America/Sao_Paulo`; troque com `APP_TIMEZONE`), e não o do servidor da Vercel (UTC). "Hoje", os horários livres de hoje e a hora dos pagamentos usam esse fuso.
+
 ## Como funciona em produção
 
 - **Dados:** um arquivo `salao/db.json` privado no Blob; logos em `logos/`. Nada é público: o site lê e entrega pelo servidor.
