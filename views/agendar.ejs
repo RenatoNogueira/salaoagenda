@@ -28,6 +28,7 @@
         <input type="date" id="date" min="<%= today %>" max="<%= maxDate %>" class="field !w-auto">
       </label>
       <p id="slots-msg" class="mt-4 text-sm text-slate-500"></p>
+      <p id="legend" class="mt-1 hidden gap-3 text-xs text-slate-500"><span><b class="text-emerald-600 dark:text-emerald-400">●</b> livre</span> <span><b class="text-slate-400">●</b> ocupado</span></p>
       <div id="slots" class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5"></div>
     </section>
 
@@ -98,10 +99,11 @@
     const k = iso(d);
     const open = OPEN_DAYS.includes(d.getDay()) && !BLOCKED.includes(k);
     chips.push(`<button type="button" data-date="${k}" ${open ? '' : 'disabled'}
-      class="choice w-16 shrink-0 snap-start !p-2 text-center ${open ? '' : 'pointer-events-none opacity-40'}">
+      class="choice w-[4.5rem] shrink-0 snap-start !p-2 text-center ${open ? '' : 'pointer-events-none opacity-40'}">
       <span class="block text-xs uppercase text-slate-500">${i === 0 ? 'hoje' : WEEK[d.getDay()]}</span>
       <span class="block text-xl font-bold">${d.getDate()}</span>
-      <span class="block text-xs text-slate-500">${MONTH[d.getMonth()]}</span></button>`);
+      <span class="block text-xs text-slate-500">${MONTH[d.getMonth()]}</span>
+      <span class="avail mt-1 block text-[10px] font-semibold leading-tight text-slate-400">&nbsp;</span></button>`);
   }
   $('days').innerHTML = chips.join('');
 
@@ -113,7 +115,23 @@
       PROS.map((p) => `<button type="button" class="choice" data-id="${p.id}"><span class="block font-semibold">${esc(p.name)}</span></button>`).join('');
     show('step-pro'); show('step-date'); hide('step-form');
     progress(2); go('step-pro');
+    loadDays();
     if (state.date) loadSlots();
+  }
+
+  // Marca em cada dia quantas vagas restam (ou "Lotado"), conforme o serviço e o profissional escolhidos
+  async function loadDays() {
+    if (!state.service) return;
+    const q = new URLSearchParams({ servico: state.service.id, profissional: state.pro });
+    let days; try { days = (await (await fetch('/api/disponibilidade?' + q)).json()).days; } catch { return; }
+    $('days').querySelectorAll('[data-date]').forEach((b) => {
+      const n = days[b.dataset.date]; const tag = b.querySelector('.avail');
+      if (n === undefined || n === null) return; // dia fechado: já aparece apagado
+      const full = n === 0;
+      tag.textContent = full ? 'Lotado' : n === 1 ? '1 vaga' : n + ' vagas';
+      tag.className = 'avail mt-1 block text-[10px] font-semibold leading-tight ' + (full ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400');
+      b.classList.toggle('opacity-50', full); b.dataset.full = full ? '1' : '';
+    });
   }
 
   async function loadSlots() {
@@ -121,10 +139,13 @@
     if (!state.date) { $('slots-msg').textContent = 'Escolha uma data.'; return; }
     $('slots-msg').textContent = 'Buscando horários...';
     const q = new URLSearchParams({ data: state.date, servico: state.service.id, profissional: state.pro });
-    const { slots, reason } = await (await fetch('/api/horarios?' + q)).json();
-    $('slots-msg').textContent = slots.length ? 'Toque no horário desejado:' : (reason ? reason + '. ' : '') + 'Tente outro dia.';
-    $('slots').innerHTML = slots.map((s) => `<button type="button" class="choice !p-0 h-12 text-center font-semibold" data-time="${s.time}">${s.time}</button>`).join('');
-    if (slots.length) { progress(3); }
+    const { slots, free, reason } = await (await fetch('/api/horarios?' + q)).json();
+    $('slots-msg').textContent = free ? 'Toque em um horário livre:' : slots.length ? 'Dia lotado: todos os horários estão ocupados. Tente outro dia.' : (reason ? reason + '. ' : '') + 'Tente outro dia.';
+    $('legend').classList.toggle('hidden', !slots.length); $('legend').classList.toggle('flex', Boolean(slots.length));
+    $('slots').innerHTML = slots.map((s) => s.free
+      ? `<button type="button" class="choice !p-0 h-12 text-center font-semibold" data-time="${s.time}">${s.time}</button>`
+      : `<button type="button" disabled aria-label="${s.time} ocupado" class="choice pointer-events-none !p-0 h-12 text-center text-sm font-semibold text-slate-400 line-through opacity-50">${s.time}</button>`).join('');
+    if (free) { progress(3); }
   }
 
   function setDate(k) {
@@ -136,7 +157,7 @@
   $('services').addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) pickService(Number(b.dataset.id)); });
   $('pros').addEventListener('click', (e) => {
     const b = e.target.closest('[data-id]'); if (!b) return;
-    state.pro = Number(b.dataset.id); mark($('pros'), b);
+    state.pro = Number(b.dataset.id); mark($('pros'), b); loadDays();
     if (state.date) loadSlots(); else go('step-date');
   });
   $('days').addEventListener('click', (e) => { const b = e.target.closest('[data-date]'); if (b && !b.disabled) setDate(b.dataset.date); });
@@ -161,7 +182,7 @@
     const data = await res.json();
     if (res.ok) { location.href = data.url; return; }
     $('error').textContent = data.error; $('error').classList.remove('hidden'); btn.disabled = false;
-    if (res.status === 409) { loadSlots(); go('step-date'); }
+    if (res.status === 409) { loadSlots(); loadDays(); go('step-date'); }
   });
 
   // Pré-seleção vinda da home

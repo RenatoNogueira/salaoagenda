@@ -194,8 +194,24 @@ app.get('/api/horarios', (req, res) => {
     date,
     serviceId: Number(req.query.servico),
     professionalId: Number(req.query.profissional) || 0,
+    all: true,
   });
-  res.json({ slots, reason: slots.length ? null : av.closedReason(d, date) });
+  const free = slots.filter((s) => s.free).length;
+  res.json({ slots, free, reason: free ? null : av.closedReason(d, date) });
+});
+
+// Quantos horários livres cada dia tem (a tela marca "Lotado" ou "N vagas" nos dias)
+app.get('/api/disponibilidade', (req, res) => {
+  const d = db.get();
+  const serviceId = Number(req.query.servico);
+  const professionalId = Number(req.query.profissional) || 0;
+  const from = av.todayStr();
+  const days = {};
+  for (let i = 0; i <= Math.min(d.settings.maxDaysAhead, 20); i++) {
+    const date = av.addDays(from, i);
+    days[date] = av.closedReason(d, date) ? null : av.getSlots(d, { date, serviceId, professionalId }).length;
+  }
+  res.json({ days });
 });
 
 app.post('/api/agendar', (req, res) => {
